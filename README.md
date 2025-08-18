@@ -1,3 +1,66 @@
+# Mentor Booking System - Clean Architecture
+
+    ├── migrations
+    ├── scripts
+    │   └── run_postgres.sh
+    ├── src
+    │   ├── api
+    │   │   ├── controllers
+    │   │   │   ├── mentor_controller.py      # Mentor management endpoints
+    │   │   │   ├── appointment_controller.py # Appointment booking endpoints
+    │   │   │   ├── auth_controller.py        # Authentication endpoints
+    │   │   │   └── todo_controller.py        # Legacy todo endpoints
+    │   │   ├── schemas
+    │   │   │   ├── user.py                   # User validation schemas
+    │   │   │   └── todo.py                   # Todo validation schemas
+    │   │   ├── middleware.py
+    │   │   ├── responses.py
+    │   │   └── requests.py
+    │   ├── infrastructure
+    │   │   ├── services
+    │   │   │   └── ...  # External services (email, notifications)
+    │   │   ├── databases
+    │   │   │   ├── base.py                   # SQLAlchemy base
+    │   │   │   ├── mssql.py                  # MSSQL configuration
+    │   │   │   └── __init__.py               # Database initialization
+    │   │   ├── repositories
+    │   │   │   ├── mentor_repository.py      # Mentor data access
+    │   │   │   ├── appointment_repository.py # Appointment data access
+    │   │   │   ├── wallet_repository.py      # Wallet data access
+    │   │   │   └── user_repository.py        # User data access
+    │   │   └── models
+    │   │   │   ├── user_model.py             # User database model
+    │   │   │   ├── mentor_model.py           # Mentor database model
+    │   │   │   ├── appointment_model.py      # Appointment database model
+    │   │   │   ├── project_group_model.py    # Project group database model
+    │   │   │   ├── wallet_model.py           # Wallet database model
+    │   │   │   └── feedback_model.py         # Feedback database model
+    │   ├── domain
+    │   │   ├── constants.py
+    │   │   ├── exceptions.py
+    │   │   ├── models
+    │   │   │   ├── user.py                   # User domain model
+    │   │   │   ├── mentor.py                 # Mentor domain model
+    │   │   │   ├── appointment.py            # Appointment domain model
+    │   │   │   ├── project_group.py          # Project group domain model
+    │   │   │   ├── wallet.py                 # Wallet domain model
+    │   │   │   ├── feedback.py               # Feedback domain model
+    │   │   │   ├── imentor_repository.py     # Mentor repository interface
+    │   │   │   ├── iappointment_repository.py # Appointment repository interface
+    │   │   │   ├── iwallet_repository.py     # Wallet repository interface
+    │   │   │   └── ifeedback_repository.py   # Feedback repository interface
+    │   ├── services
+    │   │   ├── mentor_service.py             # Mentor business logic
+    │   │   ├── appointment_service.py        # Appointment business logic
+    │   │   ├── wallet_service.py             # Wallet business logic
+    │   │   └── feedback_service.py           # Feedback business logic
+    │   ├── app.py
+    │   ├── config.py
+    │   ├── cors.py
+    │   ├── create_app.py
+    │   ├── dependency_container.py
+    │   ├── error_handler.py
+    │   └── app_logging.py
 # Mentor Booking System
 
 A Flask-based Clean Architecture implementation for a Project Mentor Booking System designed to support research and software development projects in academic environments.
@@ -22,27 +85,6 @@ The Mentor Booking System is built to facilitate the connection between students
 - **Mentors**: Create profiles, set expertise areas, manage availability, conduct sessions
 - **Admins**: System management, user oversight, analytics and reporting
 
-## Architecture
-
-This project follows Clean Architecture principles with clear separation of concerns:
-
-```
-src/
-├── api/                    # API Layer (Controllers, Routes, Middleware)
-│   ├── controllers/        # HTTP request handlers
-│   ├── middleware.py       # Request/response middleware
-│   ├── schemas/           # Request/response schemas
-│   └── swagger.py         # API documentation
-├── domain/                # Business Logic Layer
-│   ├── models/            # Domain entities and interfaces
-│   └── exceptions.py      # Domain-specific exceptions
-├── infrastructure/        # External Interfaces Layer
-│   ├── databases/         # Database configurations
-│   ├── models/            # Database models (SQLAlchemy)
-│   └── repositories/      # Data access implementations
-├── services/              # Application Services Layer
-└── config.py              # Application configuration
-```
 
 ## Domain Models
 
