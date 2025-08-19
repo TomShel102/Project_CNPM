@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from infrastructure.databases.base import Base
 
-class TodoModel(Base):
-    __tablename__ = 'todos'
+class RatingModel(Base):
+    __tablename__ = 'ratings'
     __table_args__ = {'extend_existing': True}  # Thêm dòng này
 
     id = Column(Integer, primary_key=True)
