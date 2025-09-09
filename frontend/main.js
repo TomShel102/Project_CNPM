@@ -94,6 +94,18 @@ function setupEventListeners() {
         projectGroupForm.addEventListener('submit', handleAddProjectGroup);
     }
     
+    // Forgot password form
+    const forgotPasswordFormElement = document.getElementById('forgotPasswordFormElement');
+    if (forgotPasswordFormElement) {
+        forgotPasswordFormElement.addEventListener('submit', handleForgotPassword);
+    }
+    
+    // Reset password form
+    const resetPasswordFormElement = document.getElementById('resetPasswordFormElement');
+    if (resetPasswordFormElement) {
+        resetPasswordFormElement.addEventListener('submit', handleResetPassword);
+    }
+    
     console.log('Event listeners setup complete');
 }
 
@@ -164,6 +176,8 @@ function showLandingPage() {
     document.getElementById('landingPage').classList.remove('hidden');
     document.getElementById('loginForm').classList.add('hidden');
     document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('forgotPasswordForm').classList.add('hidden');
+    document.getElementById('resetPasswordForm').classList.add('hidden');
     document.getElementById('mainApp').classList.add('hidden');
 }
 
@@ -171,6 +185,8 @@ function showLogin() {
     document.getElementById('landingPage').classList.add('hidden');
     document.getElementById('loginForm').classList.remove('hidden');
     document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('forgotPasswordForm').classList.add('hidden');
+    document.getElementById('resetPasswordForm').classList.add('hidden');
     document.getElementById('mainApp').classList.add('hidden');
 }
 
@@ -178,7 +194,30 @@ function showRegister() {
     document.getElementById('landingPage').classList.add('hidden');
     document.getElementById('loginForm').classList.add('hidden');
     document.getElementById('registerForm').classList.remove('hidden');
+    document.getElementById('forgotPasswordForm').classList.add('hidden');
+    document.getElementById('resetPasswordForm').classList.add('hidden');
     document.getElementById('mainApp').classList.add('hidden');
+}
+
+function showForgotPassword() {
+    document.getElementById('landingPage').classList.add('hidden');
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('forgotPasswordForm').classList.remove('hidden');
+    document.getElementById('resetPasswordForm').classList.add('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+}
+
+function showResetPassword(email) {
+    document.getElementById('landingPage').classList.add('hidden');
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('forgotPasswordForm').classList.add('hidden');
+    document.getElementById('resetPasswordForm').classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+    
+    // Set email in reset form
+    document.getElementById('resetEmail').value = email;
 }
 
 async function showMainApp() {
@@ -198,12 +237,13 @@ async function showMainApp() {
     
     showSection('dashboard');
     
-    // Check if sample data exists and show prompt if needed
+    // Check if sample data exists and create if needed
     setTimeout(async () => {
         if (typeof checkSampleData === 'function') {
             const dataCheck = await checkSampleData();
             if (!dataCheck.hasData) {
-                showSampleDataPrompt();
+                // Create sample data for new user
+                createUserSampleData();
             }
         }
     }, 1000);
@@ -292,6 +332,15 @@ function showSection(section) {
         case 'userManagement':
             loadUserManagement();
             break;
+        case 'projectManagement':
+            loadProjectManagement();
+            break;
+        case 'reports':
+            loadReports();
+            break;
+        case 'notifications':
+            loadNotifications();
+            break;
     }
 }
 
@@ -324,24 +373,38 @@ async function handleRegister(e) {
             })
         });
         
-        console.log('Register response:', response.status);
+        console.log('Register response status:', response.status);
+        console.log('Register response ok:', response.ok);
         
         if (response && response.ok) {
             const result = await response.json();
             console.log('Register success:', result);
-            showSuccess('registerSuccess', 'Registration successful! You can now login.');
+            
+            const roleText = {
+                'student': 'Sinh viên',
+                'mentor': 'Mentor',
+                'admin': 'Admin'
+            };
+            
+            showSuccess('registerSuccess', `Đăng ký thành công!\n\n👤 Tài khoản: ${username}\n🎭 Vai trò: ${roleText[role] || role}\n📧 Email: ${email}\n\nBạn có thể đăng nhập ngay bây giờ!`);
             
             // Clear form
             document.getElementById('registerForm').reset();
             
-            // Auto switch to login after 2 seconds
+            // Auto switch to login after 3 seconds
             setTimeout(() => {
                 showLogin();
-            }, 2000);
+            }, 3000);
         } else {
-            const error = await response.json();
-            console.log('Register error:', error);
-            showError('registerError', error.error || 'Registration failed. Please try again.');
+            let errorMessage = 'Registration failed. Please try again.';
+            try {
+                const error = await response.json();
+                console.log('Register error:', error);
+                errorMessage = error.error || errorMessage;
+            } catch (e) {
+                console.log('Could not parse error response:', e);
+            }
+            showError('registerError', errorMessage);
         }
         
     } catch (error) {
@@ -353,26 +416,28 @@ async function handleRegister(e) {
 // Dashboard
 async function loadDashboard() {
     try {
+        // Load user sample data first
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        
         // Load todos for dashboard
-        const todosResponse = await apiCall('/todos/');
-        const todos = await todosResponse.json();
+        const todos = userSampleData.todos || [];
         document.getElementById('todosCount').textContent = todos.length;
         
-        // Load courses for dashboard
-        const coursesResponse = await apiCall('/courses/');
-        const courses = await coursesResponse.json();
+        // Load courses for dashboard (from global sample data)
+        const courses = SAMPLE_DATA.courses || [];
         document.getElementById('coursesCount').textContent = courses.length;
         
-        // Load mentors for dashboard
-        const mentorsResponse = await apiCall('/mentors/');
-        const mentorsResult = await mentorsResponse.json();
-        const mentorsCount = mentorsResult.success ? mentorsResult.data.length : 0;
-        document.getElementById('mentorsCount').textContent = mentorsCount;
+        // Load mentors for dashboard (from global sample data)
+        const mentors = SAMPLE_DATA.mentors || [];
+        document.getElementById('mentorsCount').textContent = mentors.length;
         
-        // Load appointments for dashboard
-        const appointmentsResponse = await apiCall('/appointments/');
-        const appointments = await appointmentsResponse.json();
+        // Load appointments for dashboard (user-specific)
+        const appointments = userSampleData.appointments || [];
         document.getElementById('appointmentsCount').textContent = appointments.length;
+        
+        // Show upcoming appointments on dashboard
+        displayUpcomingAppointments(appointments);
         
     } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -381,6 +446,45 @@ async function loadDashboard() {
         document.getElementById('mentorsCount').textContent = '0';
         document.getElementById('appointmentsCount').textContent = '0';
     }
+}
+
+// Display upcoming appointments on dashboard
+function displayUpcomingAppointments(appointments) {
+    const upcomingContainer = document.getElementById('upcomingAppointments');
+    if (!upcomingContainer) return;
+    
+    // Filter upcoming appointments (next 7 days)
+    const now = new Date();
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    const upcomingAppointments = appointments.filter(apt => {
+        const aptDate = new Date(apt.scheduled_time);
+        return aptDate >= now && aptDate <= nextWeek;
+    }).sort((a, b) => new Date(a.scheduled_time) - new Date(b.scheduled_time));
+    
+    if (upcomingAppointments.length === 0) {
+        upcomingContainer.innerHTML = '<p>Không có lịch hẹn sắp tới</p>';
+        return;
+    }
+    
+    const appointmentsHtml = upcomingAppointments.map(appointment => {
+        const mentor = SAMPLE_DATA.mentors.find(m => m.id === appointment.mentor_id);
+        const mentorName = mentor ? mentor.name : `Mentor ${appointment.mentor_id}`;
+        const aptDate = new Date(appointment.scheduled_time);
+        
+        return `
+            <div class="upcoming-appointment-card">
+                <div class="appointment-info">
+                    <h4>📅 ${mentorName}</h4>
+                    <p><strong>Thời gian:</strong> ${aptDate.toLocaleString('vi-VN')}</p>
+                    <p><strong>Thời lượng:</strong> ${appointment.duration} phút</p>
+                    <p><strong>Trạng thái:</strong> <span class="status-${appointment.status}">${appointment.status === 'pending' ? 'Chờ xác nhận' : 'Đã xác nhận'}</span></p>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    upcomingContainer.innerHTML = appointmentsHtml;
 }
 
 // API Helper
@@ -761,30 +865,30 @@ async function loadWallet() {
 // Mentor Booking
 async function loadMentorBooking() {
     try {
-        const response = await apiCall('/mentors/');
-        const result = await response.json();
+        // Use sample data instead of API
+        const mentors = SAMPLE_DATA.mentors || [];
         
         const mentorList = document.getElementById('availableMentors');
         if (mentorList) {
-            if (!result.success || !result.data || result.data.length === 0) {
+            if (mentors.length === 0) {
                 mentorList.innerHTML = '<p>Không có mentor nào khả dụng</p>';
                 return;
             }
             
-            const mentorsHtml = result.data.map(mentor => `
+            const mentorsHtml = mentors.map(mentor => `
                 <div class="item-card">
                     <div class="item-header">
-                        <h4 class="item-title">Mentor ${mentor.id}</h4>
-                        <span class="item-status status-${mentor.status}">${mentor.status}</span>
+                        <h4 class="item-title">${mentor.name}</h4>
+                        <span class="item-status status-available">Có sẵn</span>
                     </div>
-                    <p><strong>Chuyên môn:</strong> ${mentor.expertise_areas}</p>
-                    <p><strong>Giá:</strong> ${mentor.hourly_rate} điểm/giờ</p>
-                    <p><strong>Đánh giá:</strong> ⭐ ${mentor.rating || 'Chưa có'}</p>
-                    <p><strong>Sessions/ngày:</strong> ${mentor.max_sessions_per_day}</p>
-                    <p>${mentor.bio || 'Chưa có mô tả'}</p>
+                    <p><strong>📧 Email:</strong> ${mentor.email}</p>
+                    <p><strong>🛠️ Chuyên môn:</strong> ${mentor.expertise}</p>
+                    <p><strong>⭐ Đánh giá:</strong> ${mentor.rating}/5.0 (${mentor.experience} năm kinh nghiệm)</p>
+                    <p><strong>💰 Giá:</strong> 500 điểm/giờ</p>
+                    <p><strong>📝 Giới thiệu:</strong> ${mentor.bio}</p>
                     <div class="item-actions">
-                        <button onclick="bookMentor(${mentor.id}, 'Mentor ${mentor.id}')" class="btn btn-sm">Đặt lịch</button>
-                        <button onclick="viewMentorProfile(${mentor.id})" class="btn btn-sm">Xem hồ sơ</button>
+                        <button onclick="bookMentor(${mentor.id}, '${mentor.name}')" class="btn btn-sm">📅 Đặt lịch</button>
+                        <button onclick="viewMentorProfile(${mentor.id})" class="btn btn-sm">👁️ Xem hồ sơ</button>
                     </div>
                 </div>
             `).join('');
@@ -846,7 +950,94 @@ function bookMentor(mentorId, mentorName) {
 
 // View mentor profile function
 function viewMentorProfile(mentorId) {
-    alert(`Xem hồ sơ mentor ID: ${mentorId}\n(Chức năng này sẽ được phát triển thêm)`);
+    // Find mentor in sample data
+    const mentor = SAMPLE_DATA.mentors.find(m => m.id === mentorId);
+    if (!mentor) {
+        alert('Không tìm thấy thông tin mentor');
+        return;
+    }
+    
+    // Create modal content
+    const modalContent = `
+        <div class="mentor-profile-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>👨‍💻 Hồ sơ Mentor</h2>
+                    <button onclick="closeMentorProfile()" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="mentor-info">
+                        <div class="mentor-avatar">
+                            <div class="avatar-circle">${mentor.name.charAt(0).toUpperCase()}</div>
+                        </div>
+                        <div class="mentor-details">
+                            <h3>${mentor.name}</h3>
+                            <p class="mentor-email">📧 ${mentor.email}</p>
+                            <p class="mentor-rating">⭐ ${mentor.rating}/5.0 (${mentor.experience} năm kinh nghiệm)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mentor-expertise">
+                        <h4>🛠️ Chuyên môn</h4>
+                        <div class="expertise-tags">
+                            ${mentor.expertise.split(', ').map(skill => 
+                                `<span class="expertise-tag">${skill}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="mentor-bio">
+                        <h4>📝 Giới thiệu</h4>
+                        <p>${mentor.bio}</p>
+                    </div>
+                    
+                    <div class="mentor-actions">
+                        <button onclick="bookMentor(${mentor.id}, '${mentor.name}')" class="btn" style="background: #007bff;">
+                            📅 Đặt lịch ngay
+                        </button>
+                        <button onclick="closeMentorProfile()" class="btn" style="background: #6c757d;">
+                            Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    const modal = document.createElement('div');
+    modal.innerHTML = modalContent;
+    modal.id = 'mentorProfileModal';
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeMentorProfile();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMentorProfile();
+        }
+    });
+}
+
+function closeMentorProfile() {
+    const modal = document.getElementById('mentorProfileModal');
+    if (modal) {
+        // Remove escape key listener
+        document.removeEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeMentorProfile();
+            }
+        });
+        
+        // Remove modal
+        modal.remove();
+    }
 }
 
 // Add points function
@@ -1063,46 +1254,53 @@ async function searchMentors() {
 }
 
 function displayAppointments(appointments) {
-    const tbody = document.querySelector('#appointmentsTable tbody');
-    tbody.innerHTML = '';
-    
-    appointments.forEach(appointment => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${appointment.id}</td>
-            <td>${appointment.student_id}</td>
-            <td>${appointment.mentor_id}</td>
-            <td>${appointment.scheduled_time ? new Date(appointment.scheduled_time).toLocaleString() : ''}</td>
-            <td>${appointment.status || 'pending'}</td>
-            <td>${appointment.notes || ''}</td>
-            <td>
-                <button onclick="editAppointment(${appointment.id})" class="btn">Edit</button>
-                <button onclick="deleteAppointment(${appointment.id})" class="btn btn-danger">Delete</button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+    const appointmentsList = document.getElementById('appointmentsList');
+    if (appointmentsList) {
+        const appointmentsHtml = appointments.map(appointment => `
+            <div class="item-card">
+                <div class="item-header">
+                    <h4 class="item-title">Lịch hẹn với Mentor ${appointment.mentor_id}</h4>
+                    <span class="item-status status-${appointment.status || 'pending'}">${appointment.status || 'pending'}</span>
+                </div>
+                <p><strong>Thời gian:</strong> ${appointment.scheduled_time ? new Date(appointment.scheduled_time).toLocaleString() : 'Chưa xác định'}</p>
+                <p><strong>Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
+                <p><strong>Ngày tạo:</strong> ${new Date(appointment.created_at).toLocaleDateString()}</p>
+                <div class="item-actions">
+                    <button onclick="editAppointment(${appointment.id})" class="btn btn-sm">Chỉnh sửa</button>
+                    <button onclick="deleteAppointment(${appointment.id})" class="btn btn-sm btn-danger">Xóa</button>
+                </div>
+            </div>
+        `).join('');
+        
+        appointmentsList.innerHTML = appointmentsHtml || '<p>Chưa có lịch hẹn nào</p>';
+    }
 }
 
 async function handleAddAppointment(e) {
     e.preventDefault();
     
     const mentorId = document.getElementById('appointmentMentor').value;
-    const scheduledTime = document.getElementById('appointmentTime').value;
+    const appointmentDate = document.getElementById('appointmentDate').value;
+    const appointmentTime = document.getElementById('appointmentTime').value;
+    const appointmentDuration = document.getElementById('appointmentDuration').value;
     const notes = document.getElementById('appointmentNotes').value;
     
-    if (!mentorId || !scheduledTime) {
-        alert('Vui lòng chọn mentor và thời gian hẹn');
+    if (!mentorId || !appointmentDate || !appointmentTime) {
+        alert('Vui lòng chọn mentor, ngày và giờ hẹn');
         return;
     }
     
     try {
+        // Combine date and time
+        const scheduledTime = `${appointmentDate}T${appointmentTime}:00`;
+        
         // Create new appointment object
         const newAppointment = {
             id: Date.now(),
             student_id: currentUser?.id || 1,
             mentor_id: parseInt(mentorId),
             scheduled_time: scheduledTime,
+            duration: parseInt(appointmentDuration),
             notes: notes || '',
             status: 'pending',
             created_at: new Date().toISOString()
@@ -1114,7 +1312,7 @@ async function handleAddAppointment(e) {
         }
         SAMPLE_DATA.appointments.push(newAppointment);
         
-        alert(`Đặt lịch hẹn thành công!\nMentor: ${mentorId}\nThời gian: ${new Date(scheduledTime).toLocaleString()}`);
+        alert(`Đặt lịch hẹn thành công!\nMentor: ${mentorId}\nThời gian: ${new Date(scheduledTime).toLocaleString()}\nThời lượng: ${appointmentDuration} phút`);
         
         // Clear form
         document.getElementById('appointmentForm').reset();
@@ -1129,17 +1327,18 @@ async function handleAddAppointment(e) {
 }
 
 async function deleteAppointment(id) {
-    if (confirm('Are you sure you want to delete this appointment?')) {
+    if (confirm('Bạn có chắc chắn muốn xóa lịch hẹn này?')) {
         try {
-            const response = await apiCall(`/appointments/${id}`, {
-                method: 'DELETE'
-            });
-            
-            if (response && response.ok) {
-                loadAppointments();
+            // Remove from sample data
+            if (SAMPLE_DATA.appointments) {
+                SAMPLE_DATA.appointments = SAMPLE_DATA.appointments.filter(apt => apt.id !== id);
             }
+            
+            alert('Xóa lịch hẹn thành công!');
+            loadAppointments();
         } catch (error) {
             console.error('Error deleting appointment:', error);
+            alert('Có lỗi xảy ra khi xóa lịch hẹn.');
         }
     }
 }
@@ -1179,53 +1378,96 @@ async function loadMentorSchedule() {
 
 async function loadMentorAppointments() {
     try {
-        const response = await apiCall('/appointments/');
-        const appointments = await response.json();
+        // Use sample data for now
+        const appointments = SAMPLE_DATA.appointments || [];
         
         // Filter appointments for current mentor
         const mentorId = currentUser?.id || 1;
         const mentorAppointments = appointments.filter(apt => apt.mentor_id === mentorId);
         
+        // Update dashboard stats
+        const today = new Date().toDateString();
+        const todayAppointments = mentorAppointments.filter(apt => 
+            new Date(apt.scheduled_time).toDateString() === today
+        );
+        const pendingAppointments = mentorAppointments.filter(apt => apt.status === 'pending');
+        const completedAppointments = mentorAppointments.filter(apt => apt.status === 'completed');
+        
+        document.getElementById('mentorTotalAppointments').textContent = mentorAppointments.length;
+        document.getElementById('mentorTodayAppointments').textContent = todayAppointments.length;
+        document.getElementById('mentorPendingAppointments').textContent = pendingAppointments.length;
+        document.getElementById('mentorCompletedAppointments').textContent = completedAppointments.length;
+        
+        // Display appointments
         const appointmentsHtml = mentorAppointments.map(appointment => `
-            <div class="item-card">
-                <div class="item-header">
-                    <h4 class="item-title">Lịch hẹn với Student ${appointment.student_id}</h4>
-                    <span class="item-status status-${appointment.status}">${appointment.status}</span>
+            <div class="appointment-card ${appointment.status}">
+                <div class="appointment-header">
+                    <h4>Lịch hẹn với Student ${appointment.student_id}</h4>
+                    <span class="appointment-status status-${appointment.status}">${appointment.status === 'pending' ? 'Chờ xác nhận' : 'Đã hoàn thành'}</span>
                 </div>
-                <p><strong>Thời gian:</strong> ${new Date(appointment.scheduled_time).toLocaleString()}</p>
-                <p><strong>Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
+                <p><strong>📅 Thời gian:</strong> ${new Date(appointment.scheduled_time).toLocaleString('vi-VN')}</p>
+                <p><strong>⏱️ Thời lượng:</strong> ${appointment.duration || 60} phút</p>
+                <p><strong>📝 Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
+                <div class="appointment-actions">
+                    ${appointment.status === 'pending' ? 
+                        `<button onclick="updateAppointmentStatus(${appointment.id}, 'completed')" class="btn" style="background: #28a745;">Xác nhận</button>` : 
+                        `<span style="color: #28a745;">✓ Đã hoàn thành</span>`
+                    }
+                </div>
             </div>
         `).join('');
         
         document.getElementById('mentorAppointmentsList').innerHTML = appointmentsHtml || '<p>Chưa có lịch hẹn nào</p>';
     } catch (error) {
         console.error('Error loading mentor appointments:', error);
+        document.getElementById('mentorAppointmentsList').innerHTML = '<p>Có lỗi khi tải lịch hẹn</p>';
     }
 }
 
 async function loadMentorFeedback() {
     try {
-        const response = await apiCall('/feedback/');
-        const feedbacks = await response.json();
+        // Use sample data for now
+        const feedbacks = SAMPLE_DATA.feedbacks || [];
         
         // Filter feedback for current mentor
         const mentorId = currentUser?.id || 1;
         const mentorFeedbacks = feedbacks.filter(fb => fb.mentor_id === mentorId);
         
+        // Calculate stats
+        const totalFeedback = mentorFeedbacks.length;
+        const averageRating = totalFeedback > 0 ? 
+            (mentorFeedbacks.reduce((sum, fb) => sum + fb.rating, 0) / totalFeedback).toFixed(1) : 0;
+        const fiveStarCount = mentorFeedbacks.filter(fb => fb.rating === 5).length;
+        
+        // Recent feedback (this week)
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const recentFeedback = mentorFeedbacks.filter(fb => 
+            new Date(fb.created_at) >= oneWeekAgo
+        ).length;
+        
+        // Update dashboard stats
+        document.getElementById('mentorAverageRating').textContent = averageRating;
+        document.getElementById('mentorTotalFeedback').textContent = totalFeedback;
+        document.getElementById('mentor5StarRating').textContent = fiveStarCount;
+        document.getElementById('mentorRecentFeedback').textContent = recentFeedback;
+        
+        // Display feedback
         const feedbacksHtml = mentorFeedbacks.map(feedback => `
-            <div class="item-card">
-                <div class="item-header">
-                    <h4 class="item-title">Đánh giá từ Student ${feedback.student_id}</h4>
-                    <span class="item-status">${'⭐'.repeat(feedback.rating)}</span>
+            <div class="feedback-card">
+                <div class="feedback-header">
+                    <h4>Đánh giá từ Student ${feedback.student_id}</h4>
+                    <span class="feedback-rating rating-${feedback.rating}">${'⭐'.repeat(feedback.rating)} (${feedback.rating}/5)</span>
                 </div>
-                <p><strong>Nhận xét:</strong> ${feedback.comment}</p>
-                <p><strong>Ngày:</strong> ${new Date(feedback.created_at).toLocaleDateString()}</p>
+                <p><strong>💬 Nhận xét:</strong> ${feedback.comment}</p>
+                <p><strong>📅 Ngày:</strong> ${new Date(feedback.created_at).toLocaleDateString('vi-VN')}</p>
             </div>
         `).join('');
         
         document.getElementById('mentorFeedbackList').innerHTML = feedbacksHtml || '<p>Chưa có đánh giá nào</p>';
     } catch (error) {
         console.error('Error loading mentor feedback:', error);
+        document.getElementById('mentorFeedbackList').innerHTML = '<p>Có lỗi khi tải đánh giá</p>';
     }
 }
 
@@ -1267,15 +1509,387 @@ async function loadUserManagement() {
     }
 }
 
+async function loadProjectManagement() {
+    try {
+        // Load project groups as projects
+        const projects = SAMPLE_DATA.projectGroups || [];
+        
+        // Count projects by status
+        const activeProjects = projects.filter(p => p.status === 'active').length;
+        const completedProjects = projects.filter(p => p.status === 'completed').length;
+        const pendingProjects = projects.filter(p => p.status === 'pending').length;
+        
+        document.getElementById('totalProjects').textContent = projects.length;
+        document.getElementById('activeProjects').textContent = activeProjects;
+        document.getElementById('completedProjects').textContent = completedProjects;
+        document.getElementById('pendingProjects').textContent = pendingProjects;
+        
+        // Display projects list
+        const projectsHtml = projects.map(project => `
+            <div class="item-card">
+                <div class="item-header">
+                    <h4 class="item-title">${project.name}</h4>
+                    <span class="item-status status-${project.status || 'active'}">${project.status || 'Active'}</span>
+                </div>
+                <p><strong>Chủ đề:</strong> ${project.topic}</p>
+                <p><strong>Mô tả:</strong> ${project.description || 'Không có mô tả'}</p>
+                <p><strong>Thành viên:</strong> ${project.member_count || 0} người</p>
+                <p><strong>Ngày tạo:</strong> ${new Date(project.created_at).toLocaleDateString()}</p>
+                <div class="item-actions">
+                    <button onclick="editProject(${project.id})" class="btn btn-sm">Chỉnh sửa</button>
+                    <button onclick="deleteProject(${project.id})" class="btn btn-sm btn-danger">Xóa</button>
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('projectsList').innerHTML = projectsHtml || '<p>Chưa có dự án nào</p>';
+    } catch (error) {
+        console.error('Error loading project management:', error);
+    }
+}
+
+async function loadReports() {
+    try {
+        // Calculate statistics
+        const users = SAMPLE_DATA.users || [];
+        const appointments = SAMPLE_DATA.appointments || [];
+        const projectGroups = SAMPLE_DATA.projectGroups || [];
+        const walletTransactions = SAMPLE_DATA.walletTransactions || [];
+        
+        // Calculate revenue
+        const totalRevenue = walletTransactions
+            .filter(t => t.type === 'earn')
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        // Calculate average rating (mock data)
+        const avgRating = 4.7;
+        
+        // Active users (users with appointments or projects)
+        const activeUsers = new Set([
+            ...appointments.map(a => a.student_id),
+            ...appointments.map(a => a.mentor_id),
+            ...projectGroups.map(p => p.members).flat()
+        ]).size;
+        
+        document.getElementById('totalRevenue').textContent = totalRevenue;
+        document.getElementById('totalSessions').textContent = appointments.length;
+        document.getElementById('avgRating').textContent = avgRating;
+        document.getElementById('activeUsers').textContent = activeUsers;
+        
+    } catch (error) {
+        console.error('Error loading reports:', error);
+    }
+}
+
+async function loadNotifications() {
+    try {
+        // Load notifications (static for now)
+        console.log('Loading notifications...');
+        
+        // Add event listener for notification form
+        const notificationForm = document.getElementById('notificationForm');
+        if (notificationForm) {
+            notificationForm.addEventListener('submit', handleSendNotification);
+        }
+        
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+// Handle send notification
+async function handleSendNotification(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('notificationTitle').value;
+    const content = document.getElementById('notificationContent').value;
+    const target = document.getElementById('notificationTarget').value;
+    
+    if (!title || !content || !target) {
+        alert('Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    try {
+        // Create new notification
+        const newNotification = {
+            id: Date.now(),
+            title: title,
+            content: content,
+            target: target,
+            status: 'sent',
+            created_at: new Date().toISOString()
+        };
+        
+        // Add to sample data
+        if (!SAMPLE_DATA.notifications) {
+            SAMPLE_DATA.notifications = [];
+        }
+        SAMPLE_DATA.notifications.push(newNotification);
+        
+        alert(`Gửi thông báo thành công!\nTiêu đề: ${title}\nGửi đến: ${target}`);
+        
+        // Clear form
+        document.getElementById('notificationForm').reset();
+        
+        // Reload notifications
+        loadNotifications();
+        
+    } catch (error) {
+        console.error('Error sending notification:', error);
+        alert('Có lỗi xảy ra khi gửi thông báo.');
+    }
+}
+
+// Forgot Password functions
+async function handleForgotPassword(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('forgotEmail').value;
+    
+    if (!email) {
+        showError('forgotPasswordError', 'Vui lòng nhập email');
+        return;
+    }
+    
+    try {
+        // Check if email exists in sample data
+        const users = SAMPLE_DATA.users || [];
+        const user = users.find(u => u.email === email);
+        
+        if (!user) {
+            showError('forgotPasswordError', 'Email không tồn tại trong hệ thống');
+            return;
+        }
+        
+        // Generate verification code (6 digits)
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Store verification code temporarily (in real app, this would be stored in database)
+        if (!SAMPLE_DATA.verificationCodes) {
+            SAMPLE_DATA.verificationCodes = {};
+        }
+        SAMPLE_DATA.verificationCodes[email] = {
+            code: verificationCode,
+            expires: Date.now() + 10 * 60 * 1000 // 10 minutes
+        };
+        
+        // Simulate sending email
+        showSuccess('forgotPasswordSuccess', `Mã xác minh đã được gửi đến ${email}\n\n📧 Mã xác minh: ${verificationCode}\n⏰ Mã có hiệu lực trong 10 phút\n\n(Demo: Mã được hiển thị để test)`);
+        
+        // Clear form
+        document.getElementById('forgotPasswordFormElement').reset();
+        
+        // Switch to reset password form after 3 seconds
+        setTimeout(() => {
+            showResetPassword(email);
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Error handling forgot password:', error);
+        showError('forgotPasswordError', 'Có lỗi xảy ra. Vui lòng thử lại.');
+    }
+}
+
+async function handleResetPassword(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('resetEmail').value;
+    const code = document.getElementById('resetCode').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmNewPassword').value;
+    
+    if (!code || !newPassword || !confirmPassword) {
+        showError('resetPasswordError', 'Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showError('resetPasswordError', 'Mật khẩu mới và xác nhận không khớp');
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        showError('resetPasswordError', 'Mật khẩu phải có ít nhất 6 ký tự');
+        return;
+    }
+    
+    try {
+        // Check verification code
+        const verificationData = SAMPLE_DATA.verificationCodes?.[email];
+        
+        if (!verificationData) {
+            showError('resetPasswordError', 'Mã xác minh không hợp lệ hoặc đã hết hạn');
+            return;
+        }
+        
+        if (verificationData.code !== code) {
+            showError('resetPasswordError', 'Mã xác minh không đúng');
+            return;
+        }
+        
+        if (Date.now() > verificationData.expires) {
+            showError('resetPasswordError', 'Mã xác minh đã hết hạn. Vui lòng yêu cầu mã mới.');
+            return;
+        }
+        
+        // Update password in sample data (in real app, this would update database)
+        const users = SAMPLE_DATA.users || [];
+        const userIndex = users.findIndex(u => u.email === email);
+        
+        if (userIndex !== -1) {
+            // In real app, password would be hashed
+            users[userIndex].password = newPassword; // This is just for demo
+        }
+        
+        // Remove verification code
+        delete SAMPLE_DATA.verificationCodes[email];
+        
+        showSuccess('resetPasswordSuccess', 'Đặt lại mật khẩu thành công!\n\nBạn có thể đăng nhập với mật khẩu mới.');
+        
+        // Clear form
+        document.getElementById('resetPasswordFormElement').reset();
+        
+        // Switch to login form after 3 seconds
+        setTimeout(() => {
+            showLogin();
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Error handling reset password:', error);
+        showError('resetPasswordError', 'Có lỗi xảy ra. Vui lòng thử lại.');
+    }
+}
+
+// Mentor appointment functions
+function updateAppointmentStatus(appointmentId, newStatus) {
+    try {
+        // Update in sample data
+        const appointment = SAMPLE_DATA.appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+            appointment.status = newStatus;
+            
+            // Reload the appointments list
+            loadMentorAppointments();
+            
+            // Show success message
+            alert(`Đã cập nhật trạng thái lịch hẹn thành "${newStatus === 'completed' ? 'Đã hoàn thành' : 'Chờ xác nhận'}"`);
+        }
+    } catch (error) {
+        console.error('Error updating appointment status:', error);
+        alert('Có lỗi khi cập nhật trạng thái lịch hẹn');
+    }
+}
+
+// Create sample data for new user
+function createUserSampleData() {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (!currentUser.id) return;
+        
+        // Create user-specific sample data
+        const userSampleData = {
+            todos: [
+                {
+                    id: 1,
+                    title: "Hoàn thành dự án JavaScript",
+                    description: "Làm xong project cuối kỳ môn JavaScript",
+                    completed: false,
+                    created_at: new Date().toISOString()
+                },
+                {
+                    id: 2,
+                    title: "Học React hooks",
+                    description: "Tìm hiểu về useState, useEffect và custom hooks",
+                    completed: false,
+                    created_at: new Date().toISOString()
+                },
+                {
+                    id: 3,
+                    title: "Chuẩn bị CV xin việc",
+                    description: "Cập nhật CV và portfolio để apply internship",
+                    completed: true,
+                    created_at: new Date().toISOString()
+                }
+            ],
+            appointments: [
+                {
+                    id: 1,
+                    mentor_id: 1,
+                    student_id: currentUser.id,
+                    scheduled_time: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
+                    duration: 60,
+                    notes: "Thảo luận về dự án JavaScript và cách tối ưu hóa performance",
+                    status: "pending",
+                    created_at: new Date().toISOString()
+                },
+                {
+                    id: 2,
+                    mentor_id: 2,
+                    student_id: currentUser.id,
+                    scheduled_time: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+                    duration: 90,
+                    notes: "Học Python Django và database design",
+                    status: "pending",
+                    created_at: new Date().toISOString()
+                }
+            ],
+            projectGroups: [
+                {
+                    id: 1,
+                    name: "Dự án Web App",
+                    description: "Xây dựng ứng dụng web quản lý sinh viên",
+                    members: [currentUser.username],
+                    status: "active",
+                    created_at: new Date().toISOString()
+                }
+            ],
+            wallet: {
+                balance: 1000,
+                last_updated: new Date().toISOString()
+            },
+            walletTransactions: [
+                {
+                    id: 1,
+                    amount: 1000,
+                    type: "credit",
+                    description: "Điểm khởi tạo tài khoản",
+                    created_at: new Date().toISOString()
+                }
+            ]
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+        
+        // Show welcome message
+        setTimeout(() => {
+            alert(`🎉 Chào mừng ${currentUser.username}!\n\n✅ Đã tạo dữ liệu mẫu cho bạn:\n• 3 công việc cần làm\n• 2 lịch hẹn với mentor (1 và 3 ngày tới)\n• 1 nhóm dự án\n• 1000 điểm trong ví\n\nHãy khám phá các tính năng của MentorHub!`);
+        }, 500);
+        
+        // Reload dashboard to show new data
+        setTimeout(() => {
+            loadDashboard();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error creating user sample data:', error);
+    }
+}
+
 // Utility functions
 function showError(elementId, message) {
     const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.classList.remove('hidden');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.classList.remove('hidden');
+    }
 }
 
 function showSuccess(elementId, message) {
     const successElement = document.getElementById(elementId);
-    successElement.textContent = message;
-    successElement.classList.remove('hidden');
+    if (successElement) {
+        successElement.textContent = message;
+        successElement.classList.remove('hidden');
+    }
 }

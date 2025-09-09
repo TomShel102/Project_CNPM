@@ -425,6 +425,278 @@
             backdrop-filter: blur(10px);
         }
         
+        .appointments-list, .feedback-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .appointment-card, .feedback-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        
+        .appointment-card.pending {
+            border-left-color: #ffc107;
+        }
+        
+        .appointment-card.completed {
+            border-left-color: #28a745;
+        }
+        
+        .feedback-card {
+            border-left-color: #ffc107;
+        }
+        
+        .appointment-header, .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .appointment-status, .feedback-rating {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .rating-5 {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .rating-4 {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .rating-3 {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        /* Mentor Profile Modal */
+        .mentor-profile-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .mentor-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .mentor-avatar {
+            margin-right: 20px;
+        }
+        
+        .avatar-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .mentor-details h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .mentor-email, .mentor-rating {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .mentor-expertise {
+            margin-bottom: 20px;
+        }
+        
+        .mentor-expertise h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .expertise-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .expertise-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .mentor-bio {
+            margin-bottom: 20px;
+        }
+        
+        .mentor-bio h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .mentor-bio p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .mentor-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        /* Upcoming Appointments */
+        .upcoming-appointments-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .upcoming-appointments-section h3 {
+            color: #fff;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .upcoming-appointments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .upcoming-appointment-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        
+        .appointment-info h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .appointment-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .status-pending {
+            color: #856404;
+            background: #fff3cd;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        
+        .status-completed {
+            color: #155724;
+            background: #d4edda;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        
+        .status-available {
+            color: #155724;
+            background: #d4edda;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        
         .demo-accounts h3 {
             color: #fff;
             margin-bottom: 20px;
@@ -494,16 +766,19 @@
                         <h4>👨‍🎓 Sinh viên</h4>
                         <p><strong>Username:</strong> student1</p>
                         <p><strong>Password:</strong> password123</p>
+                        <p><em>Quản lý nhóm dự án, ví điểm, đặt lịch mentor</em></p>
                     </div>
                     <div class="demo-account">
                         <h4>👨‍🏫 Mentor</h4>
-                        <p><strong>Username:</strong> mentor_nguyenvana</p>
+                        <p><strong>Username:</strong> mentor_demo</p>
                         <p><strong>Password:</strong> password123</p>
+                        <p><em>Quản lý hồ sơ, lịch làm việc, lịch hẹn</em></p>
                     </div>
                     <div class="demo-account">
                         <h4>👨‍💼 Admin</h4>
-                        <p><strong>Username:</strong> admin</p>
+                        <p><strong>Username:</strong> admin_demo</p>
                         <p><strong>Password:</strong> password123</p>
+                        <p><em>Quản lý toàn bộ hệ thống, người dùng</em></p>
                     </div>
                 </div>
             </div>
@@ -574,6 +849,14 @@
                     <div class="dashboard-card">
                         <h3 id="appointmentsCount">0</h3>
                         <p>Lịch hẹn sắp tới</p>
+                    </div>
+                </div>
+                
+                <!-- Upcoming Appointments -->
+                <div class="upcoming-appointments-section">
+                    <h3>📅 Lịch hẹn sắp tới (7 ngày tới)</h3>
+                    <div id="upcomingAppointments" class="upcoming-appointments-list">
+                        <!-- Upcoming appointments will be loaded here -->
                     </div>
                 </div>
                 
@@ -907,9 +1190,60 @@
                         <input type="password" id="password" placeholder="Nhập mật khẩu" required>
                     </div>
                     <button type="submit" class="btn">Đăng nhập</button>
+                    <button type="button" onclick="showForgotPassword()" class="btn" style="background: #ffc107; color: #000;">Quên mật khẩu?</button>
                     <button type="button" onclick="showLandingPage()" class="btn" style="background: #6c757d;">Quay lại</button>
                 </form>
                 <div id="loginError" class="message error hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Form -->
+    <div id="forgotPasswordForm" class="hidden">
+        <div class="container">
+            <div class="form-container" style="max-width: 400px; margin: 100px auto;">
+                <h2>🔐 Quên mật khẩu</h2>
+                <form id="forgotPasswordFormElement">
+                    <div class="form-group">
+                        <label for="forgotEmail">Email đăng ký:</label>
+                        <input type="email" id="forgotEmail" placeholder="Nhập email đã đăng ký" required>
+                    </div>
+                    <button type="submit" class="btn">Gửi mã xác minh</button>
+                    <button type="button" onclick="showLogin()" class="btn" style="background: #6c757d;">Quay lại đăng nhập</button>
+                </form>
+                <div id="forgotPasswordError" class="message error hidden"></div>
+                <div id="forgotPasswordSuccess" class="message success hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Form -->
+    <div id="resetPasswordForm" class="hidden">
+        <div class="container">
+            <div class="form-container" style="max-width: 400px; margin: 100px auto;">
+                <h2>🔄 Đặt lại mật khẩu</h2>
+                <form id="resetPasswordFormElement">
+                    <div class="form-group">
+                        <label for="resetEmail">Email:</label>
+                        <input type="email" id="resetEmail" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="resetCode">Mã xác minh:</label>
+                        <input type="text" id="resetCode" placeholder="Nhập mã 6 số đã gửi" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Mật khẩu mới:</label>
+                        <input type="password" id="newPassword" placeholder="Nhập mật khẩu mới" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmNewPassword">Xác nhận mật khẩu mới:</label>
+                        <input type="password" id="confirmNewPassword" placeholder="Nhập lại mật khẩu mới" required>
+                    </div>
+                    <button type="submit" class="btn">Đặt lại mật khẩu</button>
+                    <button type="button" onclick="showForgotPassword()" class="btn" style="background: #6c757d;">Quay lại</button>
+                </form>
+                <div id="resetPasswordError" class="message error hidden"></div>
+                <div id="resetPasswordSuccess" class="message success hidden"></div>
             </div>
         </div>
     </div>
@@ -936,13 +1270,13 @@
                         <label for="regConfirmPassword">Xác nhận mật khẩu:</label>
                         <input type="password" id="regConfirmPassword" placeholder="Nhập lại mật khẩu" required>
                     </div>
-                    <div class="form-group">
-                        <label for="regRole">Vai trò:</label>
-                        <select id="regRole" required>
-                            <option value="student">Sinh viên</option>
-                            <option value="mentor">Mentor</option>
-                        </select>
-                    </div>
+                        <div class="form-group">
+                            <label for="regRole">Vai trò:</label>
+                            <select id="regRole" required>
+                                <option value="student">Sinh viên</option>
+                                <option value="mentor">Mentor</option>
+                            </select>
+                        </div>
                     <button type="submit" class="btn">Đăng ký</button>
                     <button type="button" onclick="showLandingPage()" class="btn" style="background: #6c757d;">Quay lại</button>
                 </form>
@@ -1011,6 +1345,70 @@
         </div>
     </div>
 
+    <!-- Mentor Appointments Section -->
+    <div id="mentorAppointmentsSection" class="content-section">
+        <div class="form-container">
+            <h2>📅 Lịch hẹn của tôi</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 id="mentorTotalAppointments">0</h3>
+                    <p>Tổng lịch hẹn</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentorTodayAppointments">0</h3>
+                    <p>Hôm nay</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentorPendingAppointments">0</h3>
+                    <p>Chờ xác nhận</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentorCompletedAppointments">0</h3>
+                    <p>Đã hoàn thành</p>
+                </div>
+            </div>
+            
+            <div class="list-container">
+                <h3>Danh sách lịch hẹn</h3>
+                <div id="mentorAppointmentsList" class="appointments-list">
+                    <!-- Appointments will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mentor Feedback Section -->
+    <div id="mentorFeedbackSection" class="content-section">
+        <div class="form-container">
+            <h2>⭐ Đánh giá từ sinh viên</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 id="mentorAverageRating">0.0</h3>
+                    <p>Điểm trung bình</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentorTotalFeedback">0</h3>
+                    <p>Tổng đánh giá</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentor5StarRating">0</h3>
+                    <p>5 sao</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="mentorRecentFeedback">0</h3>
+                    <p>Tuần này</p>
+                </div>
+            </div>
+            
+            <div class="list-container">
+                <h3>Đánh giá gần đây</h3>
+                <div id="mentorFeedbackList" class="feedback-list">
+                    <!-- Feedback will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- User Management Section -->
     <div id="userManagementSection" class="content-section">
         <div class="form-container">
@@ -1039,6 +1437,133 @@
             <div class="list-header">Danh sách người dùng</div>
             <div class="list-content" id="usersList">
                 <p style="text-align: center; color: #666; padding: 20px;">Đang tải danh sách người dùng...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Management Section -->
+    <div id="projectManagementSection" class="content-section">
+        <div class="form-container">
+            <h2>📋 Quản lý dự án</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 id="totalProjects">0</h3>
+                    <p>Tổng dự án</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="activeProjects">0</h3>
+                    <p>Dự án đang hoạt động</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="completedProjects">0</h3>
+                    <p>Dự án hoàn thành</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="pendingProjects">0</h3>
+                    <p>Dự án chờ duyệt</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="list-container">
+            <div class="list-header">Danh sách dự án</div>
+            <div class="list-content" id="projectsList">
+                <p style="text-align: center; color: #666; padding: 20px;">Đang tải danh sách dự án...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Section -->
+    <div id="reportsSection" class="content-section">
+        <div class="form-container">
+            <h2>📊 Báo cáo thống kê</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 id="totalRevenue">0</h3>
+                    <p>Doanh thu (điểm)</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="totalSessions">0</h3>
+                    <p>Tổng số buổi tư vấn</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="avgRating">0</h3>
+                    <p>Đánh giá trung bình</p>
+                </div>
+                <div class="dashboard-card">
+                    <h3 id="activeUsers">0</h3>
+                    <p>Người dùng hoạt động</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="list-container">
+            <div class="list-header">Báo cáo chi tiết</div>
+            <div class="list-content" id="reportsList">
+                <div class="item-card">
+                    <h4>📈 Báo cáo doanh thu tháng</h4>
+                    <p>Doanh thu từ việc đặt lịch mentor và các dịch vụ khác</p>
+                </div>
+                <div class="item-card">
+                    <h4>👥 Báo cáo người dùng</h4>
+                    <p>Thống kê số lượng người dùng theo vai trò và hoạt động</p>
+                </div>
+                <div class="item-card">
+                    <h4>⭐ Báo cáo đánh giá</h4>
+                    <p>Phân tích chất lượng dịch vụ từ feedback của người dùng</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Section -->
+    <div id="notificationsSection" class="content-section">
+        <div class="form-container">
+            <h2>🔔 Quản lý thông báo</h2>
+            <form id="notificationForm">
+                <div class="form-group">
+                    <label for="notificationTitle">Tiêu đề thông báo:</label>
+                    <input type="text" id="notificationTitle" placeholder="Nhập tiêu đề thông báo" required>
+                </div>
+                <div class="form-group">
+                    <label for="notificationContent">Nội dung:</label>
+                    <textarea id="notificationContent" rows="4" placeholder="Nhập nội dung thông báo..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="notificationTarget">Gửi đến:</label>
+                    <select id="notificationTarget" required>
+                        <option value="">-- Chọn đối tượng --</option>
+                        <option value="all">Tất cả người dùng</option>
+                        <option value="students">Sinh viên</option>
+                        <option value="mentors">Mentor</option>
+                        <option value="admins">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Gửi thông báo</button>
+            </form>
+        </div>
+        
+        <div class="list-container">
+            <div class="list-header">Lịch sử thông báo</div>
+            <div class="list-content" id="notificationsList">
+                <div class="item-card">
+                    <div class="item-header">
+                        <h4 class="item-title">Chào mừng đến với MentorHub!</h4>
+                        <span class="item-status status-success">Đã gửi</span>
+                    </div>
+                    <p><strong>Gửi đến:</strong> Tất cả người dùng</p>
+                    <p><strong>Ngày gửi:</strong> 15/01/2025</p>
+                    <p>Chào mừng bạn đến với hệ thống MentorHub. Hãy khám phá các tính năng mới!</p>
+                </div>
+                <div class="item-card">
+                    <div class="item-header">
+                        <h4 class="item-title">Cập nhật hệ thống</h4>
+                        <span class="item-status status-info">Đang gửi</span>
+                    </div>
+                    <p><strong>Gửi đến:</strong> Mentor</p>
+                    <p><strong>Ngày gửi:</strong> 14/01/2025</p>
+                    <p>Hệ thống sẽ được cập nhật vào cuối tuần. Vui lòng lưu lại công việc của bạn.</p>
+                </div>
             </div>
         </div>
     </div>

@@ -157,6 +157,103 @@ const SAMPLE_DATA = {
             bio: "Game developer với kinh nghiệm phát triển game 2D/3D sử dụng Unity engine.",
             rating: 4.5,
             created_at: "2025-01-10T00:00:00Z"
+        },
+        {
+            id: 11,
+            name: "Nguyễn Minh L",
+            email: "nguyenminhl@example.com",
+            expertise: "UI/UX Design, Figma, Adobe XD, User Research",
+            experience: 5,
+            bio: "UI/UX Designer chuyên nghiệp với kinh nghiệm thiết kế giao diện người dùng và nghiên cứu trải nghiệm người dùng.",
+            rating: 4.8,
+            created_at: "2025-01-11T00:00:00Z"
+        },
+        {
+            id: 12,
+            name: "Trần Quốc M",
+            email: "tranquocm@example.com",
+            expertise: "Backend Development, Node.js, Express, MongoDB",
+            experience: 6,
+            bio: "Backend Developer chuyên về API development và database design với Node.js và MongoDB.",
+            rating: 4.7,
+            created_at: "2025-01-12T00:00:00Z"
+        },
+        {
+            id: 13,
+            name: "Lê Thị N",
+            email: "lethin@example.com",
+            expertise: "Cloud Computing, Azure, Google Cloud, Microservices",
+            experience: 7,
+            bio: "Cloud Architect với chuyên môn về Azure, Google Cloud và kiến trúc microservices cho ứng dụng quy mô lớn.",
+            rating: 4.9,
+            created_at: "2025-01-13T00:00:00Z"
+        }
+    ],
+    
+    feedbacks: [
+        {
+            id: 1,
+            mentor_id: 1,
+            student_id: 2,
+            rating: 5,
+            comment: "Mentor rất nhiệt tình và có kinh nghiệm. Giải thích rất dễ hiểu!",
+            created_at: "2025-01-14T15:30:00Z"
+        },
+        {
+            id: 2,
+            mentor_id: 1,
+            student_id: 3,
+            rating: 4,
+            comment: "Buổi mentoring rất hữu ích, học được nhiều kiến thức mới.",
+            created_at: "2025-01-13T10:15:00Z"
+        },
+        {
+            id: 3,
+            mentor_id: 2,
+            student_id: 2,
+            rating: 5,
+            comment: "Mentor Python rất giỏi, giúp tôi hiểu rõ về Django framework.",
+            created_at: "2025-01-12T14:20:00Z"
+        },
+        {
+            id: 4,
+            mentor_id: 3,
+            student_id: 4,
+            rating: 4,
+            comment: "React mentoring session rất tốt, mentor có nhiều tips hay.",
+            created_at: "2025-01-11T16:45:00Z"
+        },
+        {
+            id: 5,
+            mentor_id: 1,
+            student_id: 5,
+            rating: 5,
+            comment: "Cảm ơn mentor đã giúp tôi debug code JavaScript!",
+            created_at: "2025-01-10T09:30:00Z"
+        },
+        {
+            id: 6,
+            mentor_id: 11,
+            student_id: 2,
+            rating: 5,
+            comment: "Mentor UI/UX rất sáng tạo, giúp tôi hiểu rõ về design thinking!",
+            created_at: "2025-01-14T11:20:00Z"
+        },
+        {
+            id: 7,
+            mentor_id: 12,
+            student_id: 3,
+            rating: 4,
+            comment: "Backend mentoring rất chi tiết, học được nhiều về API design.",
+            created_at: "2025-01-13T16:45:00Z"
+        },
+        {
+            id: 8,
+            mentor_id: 13,
+            student_id: 4,
+            rating: 5,
+            comment: "Cloud architecture session tuyệt vời, mentor rất chuyên nghiệp!",
+            created_at: "2025-01-12T14:30:00Z"
         }
     ],
     
@@ -164,24 +261,52 @@ const SAMPLE_DATA = {
         {
             id: 1,
             mentor_id: 1,
-            mentor_name: "Nguyễn Văn A",
-            date: "2025-01-15",
-            time: "14:00",
+            student_id: 2,
+            scheduled_time: "2025-01-15T14:00:00Z",
             duration: 60,
             notes: "Thảo luận về dự án JavaScript và cách tối ưu hóa performance",
-            status: "scheduled",
+            status: "pending",
             created_at: "2025-01-09T10:00:00Z"
         },
         {
             id: 2,
             mentor_id: 2,
-            mentor_name: "Trần Thị B",
-            date: "2025-01-18",
-            time: "10:00",
+            student_id: 3,
+            scheduled_time: "2025-01-18T10:00:00Z",
             duration: 90,
             notes: "Code review và hướng dẫn React best practices",
-            status: "scheduled",
+            status: "completed",
             created_at: "2025-01-08T15:30:00Z"
+        },
+        {
+            id: 3,
+            mentor_id: 11,
+            student_id: 2,
+            scheduled_time: "2025-01-20T14:00:00Z",
+            duration: 60,
+            notes: "Thiết kế UI/UX cho ứng dụng mobile",
+            status: "pending",
+            created_at: "2025-01-15T09:15:00Z"
+        },
+        {
+            id: 4,
+            mentor_id: 12,
+            student_id: 4,
+            scheduled_time: "2025-01-22T16:00:00Z",
+            duration: 90,
+            notes: "Học Node.js và MongoDB cho dự án backend",
+            status: "pending",
+            created_at: "2025-01-16T11:30:00Z"
+        },
+        {
+            id: 5,
+            mentor_id: 13,
+            student_id: 3,
+            scheduled_time: "2025-01-25T10:00:00Z",
+            duration: 120,
+            notes: "Cloud architecture và microservices design",
+            status: "pending",
+            created_at: "2025-01-17T14:20:00Z"
         }
     ],
     
@@ -197,6 +322,7 @@ const SAMPLE_DATA = {
             id: 2,
             username: "student1",
             email: "student1@example.com",
+            password: "password123",
             role: "student",
             created_at: "2025-01-02T00:00:00Z"
         },
@@ -269,6 +395,46 @@ const SAMPLE_DATA = {
             email: "lythik@example.com",
             role: "mentor",
             created_at: "2025-01-10T00:00:00Z"
+        },
+        {
+            id: 15,
+            username: "mentor_nguyenminhl",
+            email: "nguyenminhl@example.com",
+            password: "password123",
+            role: "mentor",
+            created_at: "2025-01-11T00:00:00Z"
+        },
+        {
+            id: 16,
+            username: "mentor_tranquocm",
+            email: "tranquocm@example.com",
+            password: "password123",
+            role: "mentor",
+            created_at: "2025-01-12T00:00:00Z"
+        },
+        {
+            id: 17,
+            username: "mentor_lethin",
+            email: "lethin@example.com",
+            password: "password123",
+            role: "mentor",
+            created_at: "2025-01-13T00:00:00Z"
+        },
+        {
+            id: 13,
+            username: "mentor_demo",
+            email: "mentor_demo@example.com",
+            password: "password123",
+            role: "mentor",
+            created_at: "2025-01-11T00:00:00Z"
+        },
+        {
+            id: 14,
+            username: "admin_demo",
+            email: "admin_demo@example.com",
+            password: "password123",
+            role: "admin",
+            created_at: "2025-01-12T00:00:00Z"
         }
     ]
 };
@@ -388,34 +554,30 @@ async function addSampleAppointment(appointment) {
 // Function to check if sample data exists
 async function checkSampleData() {
     try {
-        const [todosRes, coursesRes, mentorsRes, appointmentsRes] = await Promise.all([
-            apiCall('/todos/'),
-            apiCall('/courses/'),
-            apiCall('/mentors/'),
-            apiCall('/appointments/')
-        ]);
+        // Check if user has sample data in localStorage
+        const userSampleData = localStorage.getItem('userSampleData');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         
-        const [todos, courses, mentors, appointments] = await Promise.all([
-            todosRes.json(),
-            coursesRes.json(),
-            mentorsRes.json(),
-            appointmentsRes.json()
-        ]);
+        if (!userSampleData || !currentUser.id) {
+            return { hasData: false };
+        }
         
-        const hasData = todos.length > 0 || courses.length > 0 || mentors.length > 0 || appointments.length > 0;
+        const data = JSON.parse(userSampleData);
+        const hasData = (data.todos && data.todos.length > 0) || 
+                       (data.appointments && data.appointments.length > 0) ||
+                       (data.projectGroups && data.projectGroups.length > 0);
         
         return {
             hasData,
             counts: {
-                todos: todos.length,
-                courses: courses.length,
-                mentors: mentors.length,
-                appointments: appointments.length
+                todos: data.todos ? data.todos.length : 0,
+                appointments: data.appointments ? data.appointments.length : 0,
+                projectGroups: data.projectGroups ? data.projectGroups.length : 0
             }
         };
     } catch (error) {
         console.log('Error checking sample data:', error);
-        return { hasData: false, counts: { todos: 0, courses: 0, mentors: 0, appointments: 0 } };
+        return { hasData: false, counts: { todos: 0, appointments: 0, projectGroups: 0 } };
     }
 }
 
