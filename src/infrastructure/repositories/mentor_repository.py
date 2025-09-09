@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from domain.models.mentor import Mentor, MentorStatus
 from domain.models.imentor_repository import IMentorRepository
 from infrastructure.models.mentor_model import MentorModel
+from infrastructure.models.mentor_expertise_model import MentorExpertiseModel
 from infrastructure.databases.mssql import session
 
 class MentorRepository(IMentorRepository):
@@ -25,6 +26,12 @@ class MentorRepository(IMentorRepository):
         self.db.add(mentor_model)
         self.db.commit()
         self.db.refresh(mentor_model)
+
+        # Persist expertise into normalized join table for efficient queries
+        if mentor.expertise_areas:
+            for exp in mentor.expertise_areas:
+                self.db.add(MentorExpertiseModel(mentor_id=mentor_model.id, expertise=exp))
+            self.db.commit()
         
         return Mentor(
             id=mentor_model.id,
@@ -97,9 +104,13 @@ class MentorRepository(IMentorRepository):
         ]
     
     def get_by_expertise(self, expertise: str) -> List[Mentor]:
-        mentor_models = self.db.query(MentorModel).filter(
-            MentorModel.expertise_areas.contains([expertise])
-        ).all()
+        # Efficient query using join table
+        mentor_models = (
+            self.db.query(MentorModel)
+            .join(MentorExpertiseModel, MentorExpertiseModel.mentor_id == MentorModel.id)
+            .filter(MentorExpertiseModel.expertise == expertise)
+            .all()
+        )
         
         return [
             Mentor(

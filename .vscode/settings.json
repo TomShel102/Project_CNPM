@@ -1,0 +1,21 @@
+{
+  "cSpell.words": [
+    "sessionmaker",
+    "scoped_session",
+    "autoflush",
+    "flasgger",
+    "swaggerui",
+    "jsonify",
+    "imentor",
+    "iappointment",
+    "iwallet",
+    "pymssql",
+    "RESTX",
+    "Flask-RESTX",
+    "dotenv",
+    "fastapi",
+    "apispec",
+    "apispec_webframeworks"
+  ]
+}
+

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from domain.models.mentor import Mentor, MentorStatus
 from domain.models.imentor_repository import IMentorRepository
 from domain.models.iappointment_repository import IAppointmentRepository
@@ -20,8 +20,8 @@ class MentorService:
             hourly_rate=hourly_rate,
             max_sessions_per_day=max_sessions_per_day,
             status=MentorStatus.ACTIVE,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         return self.mentor_repository.create(mentor)
     
@@ -62,7 +62,7 @@ class MentorService:
         if max_sessions_per_day is not None:
             mentor.max_sessions_per_day = max_sessions_per_day
         
-        mentor.updated_at = datetime.now()
+        mentor.updated_at = datetime.now(timezone.utc)
         return self.mentor_repository.update(mentor)
     
     def update_mentor_status(self, mentor_id: int, status: MentorStatus) -> bool:

@@ -1,0 +1,31 @@
+{
+  "info": {
+    "name": "Mentor Booking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "url": {"raw": "http://localhost:6868/api/auth/login", "protocol": "http", "host": ["localhost"], "port": "6868", "path": ["api","auth","login"]},
+        "body": {"mode": "raw", "raw": "{\n  \"user_name\": \"admin\",\n  \"password\": \"admin\"\n}"}
+      }
+    },
+    {
+      "name": "Todos - List",
+      "request": {"method": "GET", "url": "http://localhost:6868/api/todos/"}
+    },
+    {
+      "name": "Courses - List",
+      "request": {"method": "GET", "url": "http://localhost:6868/api/courses/"}
+    },
+    {
+      "name": "Mentors - List",
+      "request": {"method": "GET", "url": "http://localhost:6868/api/mentors/"}
+    }
+  ]
+}

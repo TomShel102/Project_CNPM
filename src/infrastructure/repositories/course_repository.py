@@ -1,45 +1,75 @@
 from domain.models.icourse_repository import ICourseRepository
 from domain.models.course import Course
-from infrastructure.databases import Base
-from domain.models.todo import Todo
 from typing import List, Optional
-from dotenv import load_dotenv
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from config import Config
-from sqlalchemy import Column, Integer, String, DateTime
-from infrastructure.databases import Base
-
-load_dotenv()
+from infrastructure.models.course_model import CourseModel
+from infrastructure.databases.mssql import session
 
 class CourseRepository(ICourseRepository):
     def __init__(self):
-        self._courses = []
-        self._id_counter = 1
+        pass
 
     def add(self, course: Course) -> Course:
-        course.id = self._id_counter
-        self._id_counter += 1
-        self._todos.append(course)
+        model = CourseModel(
+            course_name=course.course_name,
+            description=course.description,
+            status=course.status,
+            start_date=course.start_date,
+            end_date=course.end_date,
+            created_at=course.created_at,
+            updated_at=course.updated_at,
+        )
+        session.add(model)
+        session.commit()
+        course.id = model.id
         return course
 
     def get_by_id(self, course_id: int) -> Optional[Course]:
-        for course in self._courses:
-            if course.id == course_id:
-                return course
-        return None
+        model = session.query(CourseModel).get(course_id)
+        if not model:
+            return None
+        return Course(
+            id=model.id,
+            course_name=model.course_name,
+            description=model.description,
+            status=model.status,
+            start_date=model.start_date,
+            end_date=model.end_date,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
 
     def list(self) -> List[Course]:
-        return self._courses
+        models = session.query(CourseModel).all()
+        return [
+            Course(
+                id=m.id,
+                course_name=m.course_name,
+                description=m.description,
+                status=m.status,
+                start_date=m.start_date,
+                end_date=m.end_date,
+                created_at=m.created_at,
+                updated_at=m.updated_at,
+            ) for m in models
+        ]
 
     def update(self, course: Course) -> Course:
-        for idx, t in enumerate(self._courses):
-            if t.id == course.id:
-                self._courses[idx] = course
-                return course
-        raise ValueError('course not found')
+        model = session.query(CourseModel).get(course.id)
+        if not model:
+            raise ValueError('course not found')
+        model.course_name = course.course_name
+        model.description = course.description
+        model.status = course.status
+        model.start_date = course.start_date
+        model.end_date = course.end_date
+        model.created_at = course.created_at
+        model.updated_at = course.updated_at
+        session.commit()
+        return course
 
     def delete(self, course_id: int) -> None:
-        self._courses = [t for t in self._courses if t.id != course_id] 
+        model = session.query(CourseModel).get(course_id)
+        if model:
+            session.delete(model)
+            session.commit()
 

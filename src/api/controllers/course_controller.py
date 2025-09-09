@@ -1,79 +1,95 @@
 from flask import Blueprint, request, jsonify
-from services.todo_service import TodoService
-from infrastructure.repositories.todo_repository import TodoRepository
-from api.schemas.todo import TodoRequestSchema, TodoResponseSchema
+from services.course_service import CourseService
+from infrastructure.repositories.course_repository import CourseRepository
 from datetime import datetime
 
-bp = Blueprint('course', __name__, url_prefix='/courses')
+bp = Blueprint('course', __name__, url_prefix='/api/courses')
 
-# Khởi tạo service và repository (dùng memory, chưa kết nối DB thật)
-todo_service = TodoService(TodoRepository())
-
-request_schema = TodoRequestSchema()
-response_schema = TodoResponseSchema()
+course_service = CourseService(CourseRepository())
 
 @bp.route('/', methods=['GET'])
-def list_todos():
-    """
-    Get all todos
-    ---
-    get:
-      summary: Get all todos
-      tags:
-        - Todos
-      responses:
-        200:
-          description: List of todos
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TodoResponse'
-    """
-    todos = todo_service.list_todos()
-    return jsonify(response_schema.dump(todos, many=True)), 200
+def list_courses():
+    courses = course_service.list_courses()
+    return jsonify([
+        {
+            'id': c.id,
+            'course_name': c.course_name,
+            'description': c.description,
+            'status': c.status,
+            'start_date': c.start_date.isoformat() if hasattr(c.start_date, 'isoformat') else c.start_date,
+            'end_date': c.end_date.isoformat() if hasattr(c.end_date, 'isoformat') else c.end_date,
+            'created_at': c.created_at.isoformat() if hasattr(c.created_at, 'isoformat') else c.created_at,
+            'updated_at': c.updated_at.isoformat() if hasattr(c.updated_at, 'isoformat') else c.updated_at,
+        }
+        for c in courses
+    ]), 200
 
-@bp.route('/<int:todo_id>', methods=['GET'])
-def get_todo(todo_id):
-    todo = todo_service.get_todo(todo_id)
-    if not todo:
-        return jsonify({'message': 'Todo not found'}), 404
-    return jsonify(response_schema.dump(todo)), 200
+@bp.route('/<int:course_id>', methods=['GET'])
+def get_course(course_id):
+    c = course_service.get_course(course_id)
+    if not c:
+        return {'message': 'Course not found'}, 404
+    return {
+        'id': c.id,
+        'course_name': c.course_name,
+        'description': c.description,
+        'status': c.status,
+        'start_date': c.start_date.isoformat() if hasattr(c.start_date, 'isoformat') else c.start_date,
+        'end_date': c.end_date.isoformat() if hasattr(c.end_date, 'isoformat') else c.end_date,
+        'created_at': c.created_at.isoformat() if hasattr(c.created_at, 'isoformat') else c.created_at,
+        'updated_at': c.updated_at.isoformat() if hasattr(c.updated_at, 'isoformat') else c.updated_at,
+    }, 200
 
 @bp.route('/', methods=['POST'])
-def create_todo():
+def create_course():
     data = request.get_json()
-    errors = request_schema.validate(data)
-    if errors:
-        return jsonify(errors), 400
     now = datetime.utcnow()
-    todo = todo_service.create_todo(
-        title=data['title'],
-        description=data['description'],
+    c = course_service.create_course(
+        course_name=data['course_name'],
+        description=data.get('description'),
         status=data['status'],
+        start_date=data['start_date'],
+        end_date=data['end_date'],
         created_at=now,
         updated_at=now
     )
-    return jsonify(response_schema.dump(todo)), 201
+    return {
+        'id': c.id,
+        'course_name': c.course_name,
+        'description': c.description,
+        'status': c.status,
+        'start_date': c.start_date,
+        'end_date': c.end_date,
+        'created_at': c.created_at,
+        'updated_at': c.updated_at,
+    }, 201
 
-@bp.route('/<int:todo_id>', methods=['PUT'])
-def update_todo(todo_id):
+@bp.route('/<int:course_id>', methods=['PUT'])
+def update_course(course_id):
     data = request.get_json()
-    errors = request_schema.validate(data)
-    if errors:
-        return jsonify(errors), 400
-    todo = todo_service.update_todo(
-        todo_id=todo_id,
-        title=data['title'],
-        description=data['description'],
+    now = datetime.utcnow()
+    c = course_service.update_course(
+        course_id=course_id,
+        course_name=data['course_name'],
+        description=data.get('description'),
         status=data['status'],
-        created_at=datetime.utcnow(),  # Có thể lấy từ DB nếu cần
-        updated_at=datetime.utcnow()
+        start_date=data['start_date'],
+        end_date=data['end_date'],
+        created_at=now,
+        updated_at=now
     )
-    return jsonify(response_schema.dump(todo)), 200
+    return {
+        'id': c.id,
+        'course_name': c.course_name,
+        'description': c.description,
+        'status': c.status,
+        'start_date': c.start_date,
+        'end_date': c.end_date,
+        'created_at': c.created_at,
+        'updated_at': c.updated_at,
+    }, 200
 
-@bp.route('/<int:todo_id>', methods=['DELETE'])
-def delete_todo(todo_id):
-    todo_service.delete_todo(todo_id)
-    return '', 204 
+@bp.route('/<int:course_id>', methods=['DELETE'])
+def delete_course(course_id):
+    course_service.delete_course(course_id)
+    return '', 204

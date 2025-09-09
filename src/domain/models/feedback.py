@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from enum import Enum
 
@@ -23,4 +23,4 @@ class Feedback:
         self.rating = rating
         self.comment = comment
         self.feedback_type = feedback_type
-        self.created_at = created_at or datetime.now()
+        self.created_at = created_at or datetime.now(timezone.utc)

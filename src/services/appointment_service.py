@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from domain.models.appointment import Appointment, AppointmentStatus
 from domain.models.iappointment_repository import IAppointmentRepository
 from domain.models.imentor_repository import IMentorRepository
@@ -49,15 +49,16 @@ class AppointmentService:
             status=AppointmentStatus.PENDING,
             points_required=points_required,
             points_used=0,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         
         created_appointment = self.appointment_repository.create(appointment)
         
         # Deduct points from wallet
         if created_appointment:
-            self._deduct_points_from_wallet(wallet.id, points_required, created_appointment.id)
+            # Deduct points from the student's wallet (by user_id)
+            self._deduct_points_from_wallet(student_id, points_required, created_appointment.id)
             created_appointment.points_used = points_required
             self.appointment_repository.update(created_appointment)
         
@@ -86,7 +87,7 @@ class AppointmentService:
             return False
         
         appointment.status = AppointmentStatus.CONFIRMED
-        appointment.updated_at = datetime.now()
+        appointment.updated_at = datetime.now(timezone.utc)
         self.appointment_repository.update(appointment)
         return True
     
@@ -101,14 +102,15 @@ class AppointmentService:
             return False
         
         appointment.status = AppointmentStatus.CANCELLED
-        appointment.updated_at = datetime.now()
+        appointment.updated_at = datetime.now(timezone.utc)
         self.appointment_repository.update(appointment)
         
         # Refund points to student
         if appointment.points_used > 0:
             wallet = self.wallet_repository.get_wallet_by_user_id(appointment.student_id)
             if wallet:
-                self._refund_points_to_wallet(wallet.id, appointment.points_used, appointment_id)
+                # Refund points to the student's wallet (by user_id)
+                self._refund_points_to_wallet(appointment.student_id, appointment.points_used, appointment_id)
         
         return True
     
@@ -119,7 +121,7 @@ class AppointmentService:
             return False
         
         appointment.status = AppointmentStatus.COMPLETED
-        appointment.updated_at = datetime.now()
+        appointment.updated_at = datetime.now(timezone.utc)
         self.appointment_repository.update(appointment)
         return True
     
@@ -142,8 +144,8 @@ class AppointmentService:
         
         # Generate time slots
         slots = []
-        current_time = datetime.combine(date.date(), datetime.min.time().replace(hour=start_hour))
-        end_time = datetime.combine(date.date(), datetime.min.time().replace(hour=end_hour))
+        current_time = datetime.combine(date.date(), datetime.min.time().replace(hour=start_hour)).replace(tzinfo=timezone.utc)
+        end_time = datetime.combine(date.date(), datetime.min.time().replace(hour=end_hour)).replace(tzinfo=timezone.utc)
         
         while current_time + timedelta(hours=duration_hours) <= end_time:
             slot_end = current_time + timedelta(hours=duration_hours)
@@ -183,17 +185,17 @@ class AppointmentService:
         
         return len(active_conflicts) == 0
     
-    def _deduct_points_from_wallet(self, wallet_id: int, points: int, appointment_id: int):
-        """Deduct points from wallet"""
-        wallet = self.wallet_repository.get_wallet_by_user_id(wallet_id)
+    def _deduct_points_from_wallet(self, user_id: int, points: int, appointment_id: int):
+        """Deduct points from wallet by user_id"""
+        wallet = self.wallet_repository.get_wallet_by_user_id(user_id)
         if wallet:
             new_balance = wallet.balance - points
-            self.wallet_repository.update_wallet_balance(wallet_id, new_balance)
-            
+            self.wallet_repository.update_wallet_balance(wallet.id, new_balance)
+
             # Create transaction record
             from domain.models.wallet import WalletTransaction
             transaction = WalletTransaction(
-                wallet_id=wallet_id,
+                wallet_id=wallet.id,
                 amount=-points,
                 transaction_type=TransactionType.SPENT,
                 description=f"Appointment booking #{appointment_id}",
@@ -201,17 +203,17 @@ class AppointmentService:
             )
             self.wallet_repository.create_transaction(transaction)
     
-    def _refund_points_to_wallet(self, wallet_id: int, points: int, appointment_id: int):
-        """Refund points to wallet"""
-        wallet = self.wallet_repository.get_wallet_by_user_id(wallet_id)
+    def _refund_points_to_wallet(self, user_id: int, points: int, appointment_id: int):
+        """Refund points to wallet by user_id"""
+        wallet = self.wallet_repository.get_wallet_by_user_id(user_id)
         if wallet:
             new_balance = wallet.balance + points
-            self.wallet_repository.update_wallet_balance(wallet_id, new_balance)
-            
+            self.wallet_repository.update_wallet_balance(wallet.id, new_balance)
+
             # Create transaction record
             from domain.models.wallet import WalletTransaction
             transaction = WalletTransaction(
-                wallet_id=wallet_id,
+                wallet_id=wallet.id,
                 amount=points,
                 transaction_type=TransactionType.REFUNDED,
                 description=f"Appointment cancellation refund #{appointment_id}",

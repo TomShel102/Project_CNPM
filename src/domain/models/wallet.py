@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from enum import Enum
 
@@ -18,8 +18,8 @@ class Wallet:
         self.id = id
         self.user_id = user_id
         self.balance = balance
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
+        self.created_at = created_at or datetime.now(timezone.utc)
+        self.updated_at = updated_at or datetime.now(timezone.utc)
 
 class WalletTransaction:
     def __init__(self,
@@ -36,4 +36,4 @@ class WalletTransaction:
         self.transaction_type = transaction_type
         self.description = description
         self.appointment_id = appointment_id
-        self.created_at = created_at or datetime.now()
+        self.created_at = created_at or datetime.now(timezone.utc)

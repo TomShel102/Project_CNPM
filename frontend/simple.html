@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mentor Booking System - Simple</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+      
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        min-height: 100vh;
+        box-shadow: 0 0 30px rgba(0,0,0,0.1);
+      }
+      
+      .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 20px;
+        text-align: center;
+      }
+      
+      .hero-section h1 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        font-weight: 300;
+      }
+      
+      .hero-section p {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+        opacity: 0.9;
+      }
+      
+      .auth-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      
+      .auth-btn {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 15px 30px;
+        border: 2px solid white;
+        border-radius: 50px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      
+      .auth-btn:hover {
+        background: white;
+        color: #667eea;
+        transform: translateY(-2px);
+      }
+      
+      .auth-form {
+        max-width: 450px;
+        margin: 50px auto;
+        padding: 40px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .auth-form::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      
+      .auth-form h2 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+        font-weight: 300;
+        font-size: 2rem;
+      }
+      
+      .form-group {
+        margin-bottom: 15px;
+      }
+      
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      
+      .form-group input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+      }
+      
+      .form-group input:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+      
+      .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        padding: 12px 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        color: white;
+        width: 100%;
+      }
+      
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+      
+      .switch-auth {
+        text-align: center;
+        margin-top: 20px;
+        color: #666;
+      }
+      
+      .switch-auth a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      
+      .switch-auth a:hover {
+        text-decoration: underline;
+      }
+      
+      .hidden {
+        display: none;
+      }
+      
+      .main-app {
+        padding: 20px;
+      }
+      
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Landing Page -->
+      <div id="landingPage">
+        <div class="hero-section">
+          <h1>Mentor Booking System</h1>
+          <p>Connect with expert mentors and accelerate your learning journey</p>
+          <div class="auth-buttons">
+            <button onclick="showLogin()" class="auth-btn">Login</button>
+            <button onclick="showRegister()" class="auth-btn">Register</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login Page -->
+      <div id="loginPage" class="auth-form hidden">
+        <h2>Welcome Back</h2>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" value="admin" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="admin" required>
+          </div>
+          <button type="submit" class="btn">Login</button>
+        </form>
+        <div class="switch-auth">
+          Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+        </div>
+      </div>
+
+      <!-- Register Page -->
+      <div id="registerPage" class="auth-form hidden">
+        <h2>Create Account</h2>
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="regUsername">Username:</label>
+            <input type="text" id="regUsername" required>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">Email:</label>
+            <input type="email" id="regEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Password:</label>
+            <input type="password" id="regPassword" required>
+          </div>
+          <div class="form-group">
+            <label for="regConfirmPassword">Confirm Password:</label>
+            <input type="password" id="regConfirmPassword" required>
+          </div>
+          <button type="submit" class="btn">Register</button>
+        </form>
+        <div class="switch-auth">
+          Already have an account? <a href="#" onclick="showLogin()">Login here</a>
+        </div>
+      </div>
+
+      <!-- Main App -->
+      <div id="mainApp" class="main-app hidden">
+        <div class="header">
+          <h1>Welcome to Dashboard!</h1>
+          <p>You are successfully logged in.</p>
+        </div>
+        <div style="text-align: center; padding: 40px;">
+          <h2>🎉 Success!</h2>
+          <p>Your authentication is working perfectly.</p>
+          <button onclick="logout()" class="btn" style="width: auto; margin-top: 20px;">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/simple.js"></script>
+  </body>
+</html>
