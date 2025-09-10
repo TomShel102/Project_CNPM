@@ -106,6 +106,9 @@ function setupEventListeners() {
         resetPasswordFormElement.addEventListener('submit', handleResetPassword);
     }
     
+    // Profile form (will be setup dynamically when edit mode is enabled)
+    // The form submission is handled in enableProfileEdit() function
+    
     console.log('Event listeners setup complete');
 }
 
@@ -278,11 +281,22 @@ function showSection(section) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
     
     // Show selected section
-    document.getElementById(section + 'Section').classList.add('active');
+    const sectionElement = document.getElementById(section + 'Section');
+    if (sectionElement) {
+        sectionElement.classList.add('active');
+    } else {
+        console.error(`Section element not found: ${section}Section`);
+        return;
+    }
     
-    // Update navigation
+    // Update navigation - only if it's not profile (profile is accessed via avatar)
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('nav' + section.charAt(0).toUpperCase() + section.slice(1)).classList.add('active');
+    if (section !== 'profile') {
+        const navButton = document.getElementById('nav' + section.charAt(0).toUpperCase() + section.slice(1));
+        if (navButton) {
+            navButton.classList.add('active');
+        }
+    }
     
     currentPage = section;
     
@@ -290,6 +304,9 @@ function showSection(section) {
     switch(section) {
         case 'dashboard':
             loadDashboard();
+            break;
+        case 'profile':
+            loadProfile();
             break;
         case 'todos':
             loadTodos();
@@ -1874,6 +1891,161 @@ function createUserSampleData() {
         
     } catch (error) {
         console.error('Error creating user sample data:', error);
+    }
+}
+
+// Profile functions
+async function loadProfile() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showError('profileUpdateError', 'Bạn cần đăng nhập để xem trang cá nhân');
+            return;
+        }
+
+        const response = await fetch(`${API_BASE}/users/profile`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const profile = result.data;
+            
+            // Update profile display
+            document.getElementById('profileUsername').textContent = profile.username;
+            document.getElementById('profileAvatarLarge').textContent = profile.username.charAt(0).toUpperCase();
+            
+            // Update role badge
+            const roleBadge = document.getElementById('profileRoleBadge');
+            const roleMap = {
+                'student': { text: 'Sinh viên', class: 'role-student' },
+                'mentor': { text: 'Mentor', class: 'role-mentor' },
+                'admin': { text: 'Admin', class: 'role-admin' }
+            };
+            const roleInfo = roleMap[profile.role] || { text: profile.role, class: 'role-student' };
+            roleBadge.textContent = roleInfo.text;
+            roleBadge.className = `profile-role-badge ${roleInfo.class}`;
+            
+            // Update join date
+            if (profile.created_at) {
+                const joinDate = new Date(profile.created_at).toLocaleDateString('vi-VN');
+                document.getElementById('profileJoinDate').textContent = joinDate;
+            }
+            
+            // Update profile fields
+            document.getElementById('displayUsername').textContent = profile.username;
+            document.getElementById('displayEmail').textContent = profile.email;
+            document.getElementById('displayFullName').textContent = profile.full_name || 'Chưa cập nhật';
+            document.getElementById('displayPhone').textContent = profile.phone || 'Chưa cập nhật';
+            document.getElementById('displayRole').textContent = roleInfo.text;
+            document.getElementById('displayUserId').textContent = profile.id;
+            
+            // Store profile data for editing
+            window.currentProfileData = profile;
+            
+        } else {
+            const error = await response.json();
+            showError('profileUpdateError', error.error || 'Không thể tải thông tin cá nhân');
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('profileUpdateError', 'Có lỗi xảy ra khi tải thông tin cá nhân');
+    }
+}
+
+function enableProfileEdit() {
+    if (!window.currentProfileData) {
+        showError('profileUpdateError', 'Không có dữ liệu để chỉnh sửa');
+        return;
+    }
+    
+    // Hide view mode, show edit mode
+    document.getElementById('profileViewMode').style.display = 'none';
+    document.getElementById('profileEditMode').style.display = 'block';
+    
+    // Populate form with current data
+    document.getElementById('editEmail').value = window.currentProfileData.email || '';
+    document.getElementById('editFullName').value = window.currentProfileData.full_name || '';
+    document.getElementById('editPhone').value = window.currentProfileData.phone || '';
+    
+    // Hide messages
+    document.getElementById('profileUpdateMessage').style.display = 'none';
+    document.getElementById('profileUpdateError').style.display = 'none';
+    
+    // Setup form submission
+    const form = document.getElementById('profileForm');
+    form.onsubmit = handleProfileUpdate;
+}
+
+function cancelProfileEdit() {
+    // Show view mode, hide edit mode
+    document.getElementById('profileViewMode').style.display = 'block';
+    document.getElementById('profileEditMode').style.display = 'none';
+    
+    // Hide messages
+    document.getElementById('profileUpdateMessage').style.display = 'none';
+    document.getElementById('profileUpdateError').style.display = 'none';
+}
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showError('profileUpdateError', 'Bạn cần đăng nhập để cập nhật thông tin');
+            return;
+        }
+        
+        const formData = {
+            email: document.getElementById('editEmail').value,
+            full_name: document.getElementById('editFullName').value,
+            phone: document.getElementById('editPhone').value
+        };
+        
+        const response = await fetch(`${API_BASE}/users/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Update stored profile data
+            window.currentProfileData = result.data;
+            
+            // Update display
+            document.getElementById('displayEmail').textContent = result.data.email;
+            document.getElementById('displayFullName').textContent = result.data.full_name || 'Chưa cập nhật';
+            document.getElementById('displayPhone').textContent = result.data.phone || 'Chưa cập nhật';
+            
+            // Show success message
+            document.getElementById('profileUpdateMessage').style.display = 'block';
+            document.getElementById('profileUpdateError').style.display = 'none';
+            
+            // Return to view mode
+            setTimeout(() => {
+                cancelProfileEdit();
+            }, 2000);
+            
+        } else {
+            const error = await response.json();
+            document.getElementById('profileUpdateError').textContent = error.error || 'Cập nhật thông tin thất bại';
+            document.getElementById('profileUpdateError').style.display = 'block';
+            document.getElementById('profileUpdateMessage').style.display = 'none';
+        }
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        document.getElementById('profileUpdateError').textContent = 'Có lỗi xảy ra khi cập nhật thông tin';
+        document.getElementById('profileUpdateError').style.display = 'block';
+        document.getElementById('profileUpdateMessage').style.display = 'none';
     }
 }
 

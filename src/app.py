@@ -6,6 +6,7 @@ from api.controllers.mentor_controller import bp as mentor_bp
 from api.controllers.appointment_controller import bp as appointment_bp
 from api.controllers.course_controller import bp as course_bp
 from api.controllers.auth_controller import auth_bp
+from api.controllers.user_controller import user_bp
 from api.middleware import middleware
 from api.responses import success_response
 from infrastructure.databases import init_db
@@ -25,6 +26,7 @@ def create_app():
     app.register_blueprint(appointment_bp)
     app.register_blueprint(course_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(user_bp)
 
     # flasgger already serves Swagger UI at /docs via Swagger(app)
 
