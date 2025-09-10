@@ -6,22 +6,108 @@ let currentUser = null;
 let currentPage = 'todos';
 let userRole = 'student';
 
-// Load sample data script safely
-function loadSampleDataScript() {
-    const sampleDataScript = document.createElement('script');
-    sampleDataScript.src = '/sample-data.js';
-    sampleDataScript.onerror = function() {
-        console.log('Sample data script not found, continuing without it');
+// Minimal fallback data to guarantee Admin has data even if SAMPLE_DATA fails to load
+const DEFAULT_DATA = {
+    users: [
+        { id: 14, username: 'admin_demo', email: 'admin_demo@example.com', role: 'admin', created_at: '2025-01-12T00:00:00Z' },
+        { id: 2, username: 'student1', email: 'student1@example.com', role: 'student', created_at: '2025-01-02T00:00:00Z' },
+        { id: 13, username: 'mentor_demo', email: 'mentor_demo@example.com', role: 'mentor', created_at: '2025-01-11T00:00:00Z' }
+    ],
+    courses: [
+        { id: 1, name: 'JavaScript cơ bản', description: 'JS nền tảng', duration: 6, level: 'beginner', instructor: 'Nguyễn Văn A', created_at: '2025-01-01T00:00:00Z' },
+        { id: 2, name: 'React.js', description: 'React hooks, state', duration: 8, level: 'intermediate', instructor: 'Trần Thị B', created_at: '2025-01-02T00:00:00Z' },
+        { id: 3, name: 'Node.js Backend', description: 'API với Express', duration: 10, level: 'advanced', instructor: 'Lê Văn C', created_at: '2025-01-03T00:00:00Z' }
+    ],
+    mentors: [
+        { id: 1, name: 'Nguyễn Văn A', email: 'nguyenvana@example.com', expertise: 'JavaScript, React', experience: 5, bio: 'JS expert', rating: 4.8, created_at: '2025-01-01T00:00:00Z' },
+        { id: 2, name: 'Trần Thị B', email: 'tranthib@example.com', expertise: 'React, Vue', experience: 4, bio: 'Frontend dev', rating: 4.9, created_at: '2025-01-02T00:00:00Z' },
+        { id: 3, name: 'Lê Văn C', email: 'levanc@example.com', expertise: 'Node.js, DB', experience: 6, bio: 'Backend dev', rating: 4.7, created_at: '2025-01-03T00:00:00Z' }
+    ],
+    appointments: [
+        { id: 1, mentor_id: 1, student_id: 2, scheduled_time: '2025-01-15T14:00:00Z', duration: 60, notes: 'Trao đổi JS', status: 'pending', created_at: '2025-01-09T10:00:00Z' },
+        { id: 2, mentor_id: 2, student_id: 2, scheduled_time: '2025-01-18T10:00:00Z', duration: 90, notes: 'React best practices', status: 'completed', created_at: '2025-01-08T15:30:00Z' }
+    ],
+    projectGroups: [],
+    feedbacks: [
+        { id: 1, mentor_id: 1, student_id: 2, rating: 5, comment: 'Rất hữu ích', created_at: '2025-01-14T15:30:00Z' }
+    ],
+    notifications: []
+};
+
+// Lightweight storage helpers
+function getStore(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : (fallback !== undefined ? fallback : null);
+    } catch (_e) {
+        return (fallback !== undefined ? fallback : null);
+    }
+}
+
+function setStore(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function backfillIfEmpty(key, fallbackArray) {
+    const data = getStore(key, []);
+    if (Array.isArray(data) && data.length === 0 && Array.isArray(fallbackArray) && fallbackArray.length > 0) {
+        setStore(key, fallbackArray);
+        return fallbackArray;
+    }
+    return data;
+}
+
+// Seed localStorage once from SAMPLE_DATA for global datasets (admin/system scope)
+function initAppData() {
+    const maps = {
+        users: 'users',
+        courses: 'courses',
+        mentors: 'mentors',
+        appointments: 'appointments',
+        projectGroups: 'projectGroups',
+        feedbacks: 'feedbacks',
+        notifications: 'notifications'
     };
-    document.head.appendChild(sampleDataScript);
+    Object.keys(maps).forEach((k) => {
+        const lsKey = k;
+        if (!localStorage.getItem(lsKey)) {
+            const src = (typeof SAMPLE_DATA !== 'undefined' && SAMPLE_DATA[maps[k]])
+                ? SAMPLE_DATA[maps[k]]
+                : (DEFAULT_DATA[maps[k]] || []);
+            setStore(lsKey, src);
+        }
+        // If key exists but is empty, backfill from DEFAULT_DATA
+        const current = getStore(lsKey, []);
+        if (Array.isArray(current) && current.length === 0) {
+            const fb = DEFAULT_DATA[maps[k]] || [];
+            if (fb.length > 0) setStore(lsKey, fb);
+        }
+    });
+}
+
+// Load sample data script safely and return a promise when ready
+function loadSampleDataScript() {
+    return new Promise((resolve) => {
+        if (typeof SAMPLE_DATA !== 'undefined' && SAMPLE_DATA.courses && SAMPLE_DATA.mentors) {
+            resolve();
+            return;
+        }
+        const sampleDataScript = document.createElement('script');
+        sampleDataScript.src = '/sample-data.js';
+        sampleDataScript.onload = () => resolve();
+        sampleDataScript.onerror = () => resolve();
+        document.head.appendChild(sampleDataScript);
+    });
 }
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM loaded, initializing app...');
     
-    // Load sample data script
-    loadSampleDataScript();
+    // Load sample data script and wait until available
+    await loadSampleDataScript();
+    // Seed app data to localStorage (one-time per key)
+    initAppData();
     
     // Check if user is already logged in
     const token = localStorage.getItem('token');
@@ -33,7 +119,18 @@ document.addEventListener('DOMContentLoaded', function() {
             role: role || 'student' 
         };
         userRole = role || 'student';
-        showMainApp();
+        
+        // Check if user has sample data, if not create it
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        console.log('User sample data on load:', userSampleData);
+        
+        if (!userSampleData.todos || userSampleData.todos.length === 0) {
+            console.log('No user sample data found, creating...');
+            createUserSampleData();
+        } else {
+            console.log('User sample data found, loading...');
+            showMainApp();
+        }
     } else {
         showLandingPage();
     }
@@ -94,6 +191,12 @@ function setupEventListeners() {
         projectGroupForm.addEventListener('submit', handleAddProjectGroup);
     }
     
+    // Student feedback form
+    const feedbackForm = document.getElementById('feedbackForm');
+    if (feedbackForm) {
+        feedbackForm.addEventListener('submit', handleSubmitFeedback);
+    }
+    
     // Forgot password form
     const forgotPasswordFormElement = document.getElementById('forgotPasswordFormElement');
     if (forgotPasswordFormElement) {
@@ -138,6 +241,11 @@ async function handleLogin(e) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('username', username);
             localStorage.setItem('userRole', data.user.role);
+            localStorage.setItem('currentUser', JSON.stringify({
+                id: data.user.id,
+                username: username, 
+                role: data.user.role 
+            }));
             currentUser = { 
                 username: username, 
                 role: data.user.role,
@@ -156,10 +264,42 @@ async function handleLogin(e) {
             
             showMainApp();
         } else {
-            showError('loginError', data.error || 'Login failed');
+            // Backend rejected. Try local fallback auth for demo
+            const users = getStore('users', []);
+            const localUser = users.find(u => u.username === username && u.password === password);
+            if (localUser) {
+                const role = (localUser.role || 'student').toLowerCase();
+                localStorage.setItem('token', 'local');
+                localStorage.setItem('username', username);
+                localStorage.setItem('userRole', role);
+                localStorage.setItem('currentUser', JSON.stringify({ id: localUser.id || Date.now(), username, role }));
+                currentUser = { username, role, id: localUser.id || Date.now() };
+                userRole = role;
+                alert(`Đăng nhập (offline) thành công!\n\n👤 ${username}\n🎭 Vai trò: ${role.toUpperCase()}`);
+                showMainApp();
+            } else {
+                showError('loginError', data.error || 'Login failed');
+            }
         }
     } catch (error) {
-        showError('loginError', 'Network error. Make sure backend is running on port 6868.');
+        // Network error: try local fallback auth
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const users = getStore('users', []);
+        const localUser = users.find(u => u.username === username && u.password === password);
+        if (localUser) {
+            const role = (localUser.role || 'student').toLowerCase();
+            localStorage.setItem('token', 'local');
+            localStorage.setItem('username', username);
+            localStorage.setItem('userRole', role);
+            localStorage.setItem('currentUser', JSON.stringify({ id: localUser.id || Date.now(), username, role }));
+            currentUser = { username, role, id: localUser.id || Date.now() };
+            userRole = role;
+            alert(`Đăng nhập (offline) thành công!\n\n👤 ${username}\n🎭 Vai trò: ${role.toUpperCase()}`);
+            showMainApp();
+        } else {
+            showError('loginError', 'Network error. Make sure backend is running on port 6868.');
+        }
     }
 }
 
@@ -237,16 +377,8 @@ async function showMainApp() {
     
     showSection('dashboard');
     
-    // Check if sample data exists and create if needed
-    setTimeout(async () => {
-        if (typeof checkSampleData === 'function') {
-            const dataCheck = await checkSampleData();
-            if (!dataCheck.hasData) {
-                // Create sample data for new user
-                createUserSampleData();
-            }
-        }
-    }, 1000);
+    // Load dashboard data immediately
+    loadDashboard();
 }
 
 // Show role-based menu
@@ -388,6 +520,12 @@ async function handleRegister(e) {
             
             showSuccess('registerSuccess', `Đăng ký thành công!\n\n👤 Tài khoản: ${username}\n🎭 Vai trò: ${roleText[role] || role}\n📧 Email: ${email}\n\nBạn có thể đăng nhập ngay bây giờ!`);
             
+            // Persist new user to localStorage users so Admin can see it
+            const users = getStore('users', []);
+            const newId = users.length ? Math.max(...users.map(u => u.id || 0)) + 1 : Date.now();
+            users.push({ id: newId, username, email, role, created_at: new Date().toISOString() });
+            setStore('users', users);
+
             // Clear form
             document.getElementById('registerForm').reset();
             
@@ -396,20 +534,33 @@ async function handleRegister(e) {
                 showLogin();
             }, 3000);
         } else {
-            let errorMessage = 'Registration failed. Please try again.';
-            try {
-                const error = await response.json();
-                console.log('Register error:', error);
-                errorMessage = error.error || errorMessage;
-            } catch (e) {
-                console.log('Could not parse error response:', e);
+            // Backend rejected => try local registration fallback
+            const users = getStore('users', []);
+            if (users.some(u => u.username === username)) {
+                showError('registerError', 'Username đã tồn tại');
+                return;
             }
-            showError('registerError', errorMessage);
+            const newId = users.length ? Math.max(...users.map(u => u.id || 0)) + 1 : Date.now();
+            users.push({ id: newId, username, email, password, role, created_at: new Date().toISOString() });
+            setStore('users', users);
+            showSuccess('registerSuccess', `Đăng ký (offline) thành công!\n\n👤 ${username}\n🎭 ${role}\n📧 ${email}`);
+            document.getElementById('registerForm').reset();
+            setTimeout(() => showLogin(), 1500);
         }
         
     } catch (error) {
-        console.error('Registration error:', error);
-        showError('registerError', 'Registration failed. Please try again.');
+        // Network error => local fallback
+        const users = getStore('users', []);
+        if (users.some(u => u.username === username)) {
+            showError('registerError', 'Username đã tồn tại');
+            return;
+        }
+        const newId = users.length ? Math.max(...users.map(u => u.id || 0)) + 1 : Date.now();
+        users.push({ id: newId, username, email, password, role, created_at: new Date().toISOString() });
+        setStore('users', users);
+        showSuccess('registerSuccess', `Đăng ký (offline) thành công!\n\n👤 ${username}\n🎭 ${role}\n📧 ${email}`);
+        document.getElementById('registerForm').reset();
+        setTimeout(() => showLogin(), 1500);
     }
 }
 
@@ -419,25 +570,71 @@ async function loadDashboard() {
         // Load user sample data first
         const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        
-        // Load todos for dashboard
-        const todos = userSampleData.todos || [];
-        document.getElementById('todosCount').textContent = todos.length;
-        
-        // Load courses for dashboard (from global sample data)
-        const courses = SAMPLE_DATA.courses || [];
-        document.getElementById('coursesCount').textContent = courses.length;
-        
-        // Load mentors for dashboard (from global sample data)
-        const mentors = SAMPLE_DATA.mentors || [];
-        document.getElementById('mentorsCount').textContent = mentors.length;
-        
-        // Load appointments for dashboard (user-specific)
-        const appointments = userSampleData.appointments || [];
-        document.getElementById('appointmentsCount').textContent = appointments.length;
-        
-        // Show upcoming appointments on dashboard
-        displayUpcomingAppointments(appointments);
+        const roleFromStorage = (localStorage.getItem('userRole') || currentUser.role || 'student').toLowerCase();
+
+        // Ensure SAMPLE_DATA is always available
+        if (!SAMPLE_DATA.courses || SAMPLE_DATA.courses.length === 0) {
+            loadSampleDataScript();
+        }
+        if (!SAMPLE_DATA.mentors || SAMPLE_DATA.mentors.length === 0) {
+            loadSampleDataScript();
+        }
+
+        const now = new Date();
+
+        if (roleFromStorage === 'admin') {
+            // Admin dashboard: show system-wide, real-time stats
+            const allUsers = backfillIfEmpty('users', DEFAULT_DATA.users);
+            const allCourses = backfillIfEmpty('courses', DEFAULT_DATA.courses);
+            const allMentors = backfillIfEmpty('mentors', DEFAULT_DATA.mentors);
+            const allAppointments = backfillIfEmpty('appointments', DEFAULT_DATA.appointments);
+            const upcomingAllAppointments = allAppointments.filter(apt => new Date(apt.scheduled_time) >= now);
+
+            // Update labels for admin context
+            const todosLabel = document.getElementById('todosLabel');
+            const coursesLabel = document.getElementById('coursesLabel');
+            const mentorsLabel = document.getElementById('mentorsLabel');
+            const appointmentsLabel = document.getElementById('appointmentsLabel');
+            if (todosLabel) todosLabel.textContent = 'Tổng số người dùng';
+            if (coursesLabel) coursesLabel.textContent = 'Tổng số khóa học';
+            if (mentorsLabel) mentorsLabel.textContent = 'Tổng số mentor';
+            if (appointmentsLabel) appointmentsLabel.textContent = 'Lịch hẹn sắp tới (toàn hệ thống)';
+
+            // Set values
+            document.getElementById('todosCount').textContent = allUsers.length;
+            document.getElementById('coursesCount').textContent = allCourses.length;
+            document.getElementById('mentorsCount').textContent = allMentors.length;
+            document.getElementById('appointmentsCount').textContent = upcomingAllAppointments.length;
+
+            // Show upcoming appointments across the system
+            displayUpcomingAppointments(allAppointments);
+        } else {
+            // Student/Mentor: show user-specific stats
+            // Reset labels back to student/mentor context
+            const todosLabel = document.getElementById('todosLabel');
+            const coursesLabel = document.getElementById('coursesLabel');
+            const mentorsLabel = document.getElementById('mentorsLabel');
+            const appointmentsLabel = document.getElementById('appointmentsLabel');
+            if (todosLabel) todosLabel.textContent = 'Công việc cần làm';
+            if (coursesLabel) coursesLabel.textContent = 'Khóa học đã đăng ký';
+            if (mentorsLabel) mentorsLabel.textContent = 'Mentor có sẵn';
+            if (appointmentsLabel) appointmentsLabel.textContent = 'Lịch hẹn sắp tới';
+            const todos = userSampleData.todos || [];
+            const pendingTodos = todos.filter(todo => !todo.completed);
+            document.getElementById('todosCount').textContent = pendingTodos.length;
+
+            const courses = backfillIfEmpty('courses', DEFAULT_DATA.courses);
+            document.getElementById('coursesCount').textContent = courses.length;
+
+            const mentors = backfillIfEmpty('mentors', DEFAULT_DATA.mentors);
+            document.getElementById('mentorsCount').textContent = mentors.length;
+
+            const appointments = userSampleData.appointments || [];
+            const upcomingAppointments = appointments.filter(apt => new Date(apt.scheduled_time) >= now);
+            document.getElementById('appointmentsCount').textContent = upcomingAppointments.length;
+
+            displayUpcomingAppointments(appointments);
+        }
         
     } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -476,7 +673,7 @@ function displayUpcomingAppointments(appointments) {
             <div class="upcoming-appointment-card">
                 <div class="appointment-info">
                     <h4>📅 ${mentorName}</h4>
-                    <p><strong>Thời gian:</strong> ${aptDate.toLocaleString('vi-VN')}</p>
+                    <p><strong>Thời gian:</strong> ${formatDateTime(appointment.scheduled_time)}</p>
                     <p><strong>Thời lượng:</strong> ${appointment.duration} phút</p>
                     <p><strong>Trạng thái:</strong> <span class="status-${appointment.status}">${appointment.status === 'pending' ? 'Chờ xác nhận' : 'Đã xác nhận'}</span></p>
                 </div>
@@ -511,16 +708,15 @@ async function apiCall(endpoint, options = {}) {
     return response;
 }
 
-// Todos
+// Todos (localStorage-based)
 async function loadTodos() {
     try {
-        const response = await apiCall('/todos/');
-        if (response && response.ok) {
-            const todos = await response.json();
-            displayTodos(todos);
-        }
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const todos = Array.isArray(userSampleData.todos) ? userSampleData.todos : [];
+        displayTodos(todos);
     } catch (error) {
         console.error('Error loading todos:', error);
+        displayTodos([]);
     }
 }
 
@@ -534,7 +730,7 @@ function displayTodos(todos) {
         todoCard.innerHTML = `
             <div class="item-header">
                 <h4 class="item-title">${todo.title}</h4>
-                <span class="item-status status-${todo.status}">${todo.status}</span>
+                <span class="item-status status-${todo.status || 'pending'}">${todo.status || 'pending'}</span>
             </div>
             <p style="color: #666; margin: 10px 0;">${todo.description || 'No description'}</p>
             <div class="item-actions">
@@ -546,48 +742,54 @@ function displayTodos(todos) {
     });
     
     if (todos.length === 0) {
-        todosList.innerHTML = '<div class="card"><p>No todos found. Create your first todo!</p></div>';
+        todosList.innerHTML = '<div class="card"><p>Chưa có công việc nào. Hãy thêm công việc đầu tiên!</p></div>';
     }
 }
 
 async function handleAddTodo(e) {
     e.preventDefault();
-    
-    const todoData = {
-        title: document.getElementById('todoTitle').value,
-        description: document.getElementById('todoDescription').value,
-        status: document.getElementById('todoStatus').value
-    };
-    
+    const title = (document.getElementById('todoTitle').value || '').trim();
+    const description = (document.getElementById('todoDescription').value || '').trim();
+    const status = document.getElementById('todoStatus').value || 'pending';
+    if (!title) {
+        alert('Vui lòng nhập tiêu đề công việc');
+        return;
+    }
     try {
-        const response = await apiCall('/todos/', {
-            method: 'POST',
-            body: JSON.stringify(todoData)
-        });
-        
-        if (response && response.ok) {
-            hideAddTodoForm();
-            loadTodos();
-            document.getElementById('todoForm').reset();
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        if (!userSampleData || typeof userSampleData !== 'object') {
+            localStorage.setItem('userSampleData', JSON.stringify({ todos: [] }));
         }
+        const fresh = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        if (!Array.isArray(fresh.todos)) fresh.todos = [];
+        fresh.todos.push({
+            id: Date.now(),
+            title,
+            description,
+            status,
+            created_at: new Date().toISOString()
+        });
+        localStorage.setItem('userSampleData', JSON.stringify(fresh));
+        const formEl = document.getElementById('todoForm');
+        if (formEl) formEl.reset();
+        loadTodos();
+        loadDashboard();
     } catch (error) {
         console.error('Error adding todo:', error);
+        alert('Không thể thêm công việc: ' + (error?.message || 'Lỗi không xác định'));
     }
 }
 
 async function deleteTodo(id) {
-    if (confirm('Are you sure you want to delete this todo?')) {
-        try {
-            const response = await apiCall(`/todos/${id}`, {
-                method: 'DELETE'
-            });
-            
-            if (response && response.ok) {
-                loadTodos();
-            }
-        } catch (error) {
-            console.error('Error deleting todo:', error);
-        }
+    if (!confirm('Bạn có chắc muốn xóa công việc này?')) return;
+    try {
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        userSampleData.todos = (userSampleData.todos || []).filter(t => Number(t.id) !== Number(id));
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+        loadTodos();
+        if (currentPage === 'dashboard') loadDashboard();
+    } catch (error) {
+        console.error('Error deleting todo:', error);
     }
 }
 
@@ -623,8 +825,8 @@ function displayCourses(courses) {
             <td>${course.course_name}</td>
             <td>${course.description || ''}</td>
             <td>${course.status}</td>
-            <td>${course.start_date ? new Date(course.start_date).toLocaleDateString() : ''}</td>
-            <td>${course.end_date ? new Date(course.end_date).toLocaleDateString() : ''}</td>
+            <td>${course.start_date ? formatDate(course.start_date) : ''}</td>
+            <td>${course.end_date ? formatDate(course.end_date) : ''}</td>
             <td>
                 <button onclick="editCourse(${course.id})" class="btn">Edit</button>
                 <button onclick="deleteCourse(${course.id})" class="btn btn-danger">Delete</button>
@@ -776,8 +978,10 @@ function hideAddMentorForm() {
 // Appointments
 async function loadAppointments() {
     try {
-        // Use sample data for now
-        const appointments = SAMPLE_DATA.appointments || [];
+        // Load user-specific appointments from localStorage
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const appointments = userSampleData.appointments || [];
+        console.log('Loading appointments:', appointments.length, 'appointments found');
         displayAppointments(appointments);
     } catch (error) {
         console.error('Error loading appointments:', error);
@@ -787,8 +991,9 @@ async function loadAppointments() {
 // Project Groups
 async function loadProjectGroups() {
     try {
-        // Use sample data for now
-        const groups = SAMPLE_DATA.projectGroups || [];
+        // Load user-specific project groups from localStorage
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const groups = userSampleData.projectGroups || [];
         
         const groupsHtml = groups.map(group => `
             <div class="item-card">
@@ -799,7 +1004,7 @@ async function loadProjectGroups() {
                 <p><strong>Chủ đề:</strong> ${group.topic}</p>
                 <p><strong>Mô tả:</strong> ${group.description || 'Không có mô tả'}</p>
                 <p><strong>Thành viên:</strong> ${group.member_count || 0} người</p>
-                <p><strong>Ngày tạo:</strong> ${new Date(group.created_at).toLocaleDateString()}</p>
+                <p><strong>Ngày tạo:</strong> ${formatDate(group.created_at)}</p>
                 <div class="item-actions">
                     <button onclick="editProjectGroup(${group.id})" class="btn btn-sm">Chỉnh sửa</button>
                     <button onclick="deleteProjectGroup(${group.id})" class="btn btn-sm btn-danger">Xóa</button>
@@ -819,8 +1024,9 @@ async function loadWallet() {
     try {
         const userId = currentUser?.id || 1;
         
-        // Use sample data
-        const wallet = SAMPLE_DATA.wallet || {
+        // Load user-specific wallet from localStorage
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const wallet = userSampleData.wallet || {
             id: userId,
             user_id: userId,
             balance: 0,
@@ -832,8 +1038,8 @@ async function loadWallet() {
         document.getElementById('totalSpent').textContent = wallet.total_spent || 0;
         document.getElementById('totalEarned').textContent = wallet.total_earned || 0;
         
-        // Load transactions
-        const transactions = SAMPLE_DATA.walletTransactions || [];
+        // Load transactions from user data
+        const transactions = userSampleData.wallet?.transactions || [];
         
         if (transactions.length > 0) {
             const historyHtml = transactions.map(transaction => `
@@ -844,7 +1050,7 @@ async function loadWallet() {
                             ${transaction.type === 'earn' ? '+' : '-'}${transaction.amount} điểm
                         </span>
                     </div>
-                    <p><strong>Ngày:</strong> ${new Date(transaction.created_at).toLocaleDateString()}</p>
+                    <p><strong>Ngày:</strong> ${formatDate(transaction.timestamp || transaction.created_at)}</p>
                     <p><strong>Loại:</strong> ${transaction.type === 'earn' ? 'Nhận điểm' : 'Sử dụng điểm'}</p>
                 </div>
             `).join('');
@@ -904,17 +1110,17 @@ async function loadMentorBooking() {
 // Feedback
 async function loadFeedback() {
     try {
-        const response = await apiCall('/feedback/');
-        const feedbacks = await response.json();
+        // Load from localStorage to persist across reloads
+        const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
         
         const feedbacksHtml = feedbacks.map(feedback => `
             <div class="item-card">
                 <div class="item-header">
-                    <h4 class="item-title">Đánh giá ${feedback.mentor_name}</h4>
+                    <h4 class="item-title">Đánh giá ${feedback.mentor_name || ('Mentor ' + feedback.mentor_id)}</h4>
                     <span class="item-status">${'⭐'.repeat(feedback.rating)}</span>
                 </div>
                 <p><strong>Nhận xét:</strong> ${feedback.comment}</p>
-                <p><strong>Ngày:</strong> ${new Date(feedback.created_at).toLocaleDateString()}</p>
+                <p><strong>Ngày:</strong> ${formatDate(feedback.created_at)}</p>
             </div>
         `).join('');
         
@@ -923,6 +1129,40 @@ async function loadFeedback() {
         console.error('Error loading feedback:', error);
         document.getElementById('feedbackHistory').innerHTML = '<p>Error loading feedback</p>';
     }
+}
+
+// Submit student feedback
+async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    const mentorId = parseInt(document.getElementById('feedbackMentor').value, 10);
+    const rating = parseInt(document.getElementById('feedbackRating').value, 10);
+    const comment = (document.getElementById('feedbackComment').value || '').trim();
+    const current = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    
+    if (!mentorId || !rating) {
+        alert('Vui lòng chọn mentor và mức đánh giá');
+        return;
+    }
+    
+    const mentors = backfillIfEmpty('mentors', DEFAULT_DATA.mentors) || [];
+    const m = mentors.find(x => Number(x.id) === mentorId);
+    const feedback = {
+        id: Date.now(),
+        mentor_id: mentorId,
+        mentor_name: m?.name || `Mentor ${mentorId}`,
+        student_id: current.id,
+        rating: rating,
+        comment: comment,
+        created_at: new Date().toISOString()
+    };
+    
+    const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
+    feedbacks.unshift(feedback);
+    localStorage.setItem('feedbacks', JSON.stringify(feedbacks));
+    
+    alert('✅ Gửi đánh giá thành công!');
+    document.getElementById('feedbackForm').reset();
+    loadFeedback();
 }
 
 // Book mentor function
@@ -1040,17 +1280,20 @@ function closeMentorProfile() {
     }
 }
 
-// Add points function
+// Add points function (persistent, localStorage-based)
 async function addPoints() {
-    const amount = document.getElementById('addPointsAmount').value;
-    const description = document.getElementById('addPointsDescription').value || 'Nạp điểm';
-    const paymentMethod = document.getElementById('paymentMethod').value;
+    const amountEl = document.getElementById('addPointsAmount');
+    const descEl = document.getElementById('addPointsDescription');
+    const methodEl = document.getElementById('paymentMethod');
     
-    if (!amount || amount <= 0) {
+    const amount = parseInt((amountEl?.value || '').trim(), 10);
+    const description = (descEl?.value || 'Nạp điểm').trim();
+    const paymentMethod = (methodEl?.value || '').trim();
+    
+    if (!Number.isFinite(amount) || amount <= 0) {
         alert('Vui lòng nhập số điểm hợp lệ (lớn hơn 0)');
         return;
     }
-    
     if (!paymentMethod) {
         alert('Vui lòng chọn hình thức thanh toán');
         return;
@@ -1058,38 +1301,39 @@ async function addPoints() {
     
     try {
         const userId = currentUser?.id || 1;
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
         
-        // For demo purposes, just simulate success
-        const newBalance = (parseInt(amount) + (parseInt(document.getElementById('walletBalance').textContent) || 0));
+        if (!userSampleData.wallet) {
+            userSampleData.wallet = {
+                id: userId,
+                user_id: userId,
+                balance: 0,
+                total_spent: 0,
+                total_earned: 0,
+                transactions: []
+            };
+        }
         
-        // Create transaction record
+        const currentBalance = parseInt(userSampleData.wallet.balance || 0, 10) || 0;
+        const newBalance = currentBalance + amount;
+        
         const transaction = {
             id: Date.now(),
             wallet_id: userId,
-            amount: parseInt(amount),
+            amount: amount,
             type: 'earn',
             description: `${description} (${paymentMethod})`,
             created_at: new Date().toISOString()
         };
         
-        // Add to sample data
-        if (!SAMPLE_DATA.walletTransactions) {
-            SAMPLE_DATA.walletTransactions = [];
-        }
-        SAMPLE_DATA.walletTransactions.push(transaction);
+        userSampleData.wallet.transactions = userSampleData.wallet.transactions || [];
+        userSampleData.wallet.transactions.push(transaction);
+        userSampleData.wallet.balance = newBalance;
+        userSampleData.wallet.total_earned = (parseInt(userSampleData.wallet.total_earned || 0, 10) || 0) + amount;
         
-        // Update wallet balance
-        if (!SAMPLE_DATA.wallet) {
-            SAMPLE_DATA.wallet = {
-                id: userId,
-                user_id: userId,
-                balance: 0,
-                total_spent: 0,
-                total_earned: 0
-            };
-        }
-        SAMPLE_DATA.wallet.balance = newBalance;
-        SAMPLE_DATA.wallet.total_earned += parseInt(amount);
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+        
+        await loadWallet();
         
         const paymentMethodText = {
             'credit_card': '💳 Thẻ tín dụng',
@@ -1100,15 +1344,11 @@ async function addPoints() {
             'demo': '🎯 Demo (Miễn phí)'
         };
         
-        alert(`Nạp ${amount} điểm thành công!\n\n${paymentMethodText[paymentMethod]}\n💰 Số dư mới: ${newBalance} điểm`);
+        alert(`Nạp ${amount} điểm thành công!\n\n${paymentMethodText[paymentMethod] || paymentMethod}\n💰 Số dư mới: ${newBalance} điểm`);
         
-        // Clear form
-        document.getElementById('addPointsAmount').value = '';
-        document.getElementById('addPointsDescription').value = '';
-        document.getElementById('paymentMethod').value = '';
-        
-        // Reload wallet
-        loadWallet();
+        if (amountEl) amountEl.value = '';
+        if (descEl) descEl.value = '';
+        if (methodEl) methodEl.value = '';
         
     } catch (error) {
         console.error('Error adding points:', error);
@@ -1143,11 +1383,17 @@ async function handleAddProjectGroup(e) {
             status: 'active'
         };
         
-        // Add to sample data
-        if (!SAMPLE_DATA.projectGroups) {
-            SAMPLE_DATA.projectGroups = [];
+        // Get user sample data
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        
+        // Initialize project groups if not exists
+        if (!userSampleData.projectGroups) {
+            userSampleData.projectGroups = [];
         }
-        SAMPLE_DATA.projectGroups.push(newGroup);
+        userSampleData.projectGroups.push(newGroup);
+        
+        // Save to localStorage
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
         
         alert(`Tạo nhóm "${groupName}" thành công!`);
         
@@ -1166,23 +1412,31 @@ async function handleAddProjectGroup(e) {
 // Load mentors for appointment dropdown
 async function loadMentorsForAppointment() {
     try {
-        const response = await apiCall('/mentors/');
-        const result = await response.json();
+        // Use sample data instead of API
+        const mentors = SAMPLE_DATA.mentors || [];
+        console.log('Loading mentors for appointment:', mentors.length, 'mentors found');
+        console.log('SAMPLE_DATA.mentors:', SAMPLE_DATA.mentors);
         
         const mentorSelect = document.getElementById('appointmentMentor');
+        console.log('mentorSelect element:', mentorSelect);
+        
         if (mentorSelect) {
             // Clear existing options except the first one
             mentorSelect.innerHTML = '<option value="">-- Chọn mentor --</option>';
             
             // Add mentors to dropdown
-            if (result.success && result.data) {
-                result.data.forEach(mentor => {
-                    const option = document.createElement('option');
-                    option.value = mentor.id;
-                    option.textContent = `Mentor ${mentor.id} - ${mentor.expertise_areas}`;
-                    mentorSelect.appendChild(option);
-                });
-            }
+            mentors.forEach((mentor, index) => {
+                console.log(`Adding mentor ${index + 1}:`, mentor);
+                const option = document.createElement('option');
+                option.value = mentor.id;
+                option.textContent = `${mentor.name} - ${mentor.expertise}`;
+                mentorSelect.appendChild(option);
+            });
+            
+            console.log('Added', mentors.length, 'mentors to dropdown');
+            console.log('Final dropdown options:', mentorSelect.options.length);
+        } else {
+            console.error('appointmentMentor element not found');
         }
     } catch (error) {
         console.error('Error loading mentors for appointment:', error);
@@ -1192,23 +1446,44 @@ async function loadMentorsForAppointment() {
 // Load mentors for feedback dropdown
 async function loadMentorsForFeedback() {
     try {
-        const response = await apiCall('/mentors/');
-        const result = await response.json();
-        
         const mentorSelect = document.getElementById('feedbackMentor');
-        if (mentorSelect) {
-            // Clear existing options except the first one
-            mentorSelect.innerHTML = '<option value="">-- Chọn mentor --</option>';
-            
-            // Add mentors to dropdown
-            if (result.success && result.data) {
-                result.data.forEach(mentor => {
-                    const option = document.createElement('option');
-                    option.value = mentor.id;
-                    option.textContent = `Mentor ${mentor.id} - ${mentor.expertise_areas}`;
-                    mentorSelect.appendChild(option);
-                });
-            }
+        if (!mentorSelect) return;
+        mentorSelect.innerHTML = '<option value="">-- Chọn mentor --</option>';
+
+        const current = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const sysAppointments = getStore('appointments', []);
+        const userData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const userAppointments = Array.isArray(userData.appointments) ? userData.appointments : [];
+        const sampleAppointments = (typeof SAMPLE_DATA !== 'undefined' && Array.isArray(SAMPLE_DATA.appointments)) ? SAMPLE_DATA.appointments : [];
+
+        // Merge sources and filter completed by this student (ensure numeric compare)
+        const merged = [...sysAppointments, ...userAppointments, ...sampleAppointments];
+        const currentId = Number(current.id);
+        const completedForUser = merged.filter(a => a && Number(a.student_id) === currentId && a.status === 'completed');
+        const uniqueMentorIds = Array.from(new Set(completedForUser.map(a => a.mentor_id)));
+
+        // Build a rich lookup map from multiple sources
+        const mentorsLS = backfillIfEmpty('mentors', DEFAULT_DATA.mentors) || [];
+        const mentorsSample = (typeof SAMPLE_DATA !== 'undefined' && Array.isArray(SAMPLE_DATA.mentors)) ? SAMPLE_DATA.mentors : [];
+        const idToMentor = new Map([
+            ...mentorsLS.map(m => [Number(m.id), m]),
+            ...mentorsSample.map(m => [Number(m.id), m])
+        ]);
+
+        uniqueMentorIds.forEach(mid => {
+            const m = idToMentor.get(Number(mid)) || { id: mid, name: `Mentor ${mid}` };
+            const option = document.createElement('option');
+            option.value = mid;
+            option.textContent = m.name || `Mentor ${mid}`;
+            mentorSelect.appendChild(option);
+        });
+
+        // If still empty, hint user
+        if (mentorSelect.options.length === 1) {
+            const opt = document.createElement('option');
+            opt.disabled = true;
+            opt.textContent = 'Chưa có mentor nào đã hoàn thành để đánh giá';
+            mentorSelect.appendChild(opt);
         }
     } catch (error) {
         console.error('Error loading mentors for feedback:', error);
@@ -1256,23 +1531,231 @@ async function searchMentors() {
 function displayAppointments(appointments) {
     const appointmentsList = document.getElementById('appointmentsList');
     if (appointmentsList) {
-        const appointmentsHtml = appointments.map(appointment => `
-            <div class="item-card">
-                <div class="item-header">
-                    <h4 class="item-title">Lịch hẹn với Mentor ${appointment.mentor_id}</h4>
-                    <span class="item-status status-${appointment.status || 'pending'}">${appointment.status || 'pending'}</span>
+        const appointmentsHtml = appointments.map(appointment => {
+            const mentor = SAMPLE_DATA.mentors.find(m => m.id === appointment.mentor_id);
+            const mentorName = mentor ? mentor.name : `Mentor ${appointment.mentor_id}`;
+            
+            return `
+                <div class="item-card">
+                    <div class="item-header">
+                        <h4 class="item-title">Lịch hẹn với ${mentorName}</h4>
+                        <span class="item-status status-${appointment.status || 'pending'}">${appointment.status || 'pending'}</span>
+                    </div>
+                    <p><strong>Thời gian:</strong> ${appointment.scheduled_time ? formatDateTime(appointment.scheduled_time) : 'Chưa xác định'}</p>
+                    <p><strong>Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
+                    <p><strong>Ngày tạo:</strong> ${formatDate(appointment.created_at)}</p>
+                    <div class="item-actions">
+                        <button onclick="editAppointment(${appointment.id})" class="btn btn-sm">✏️ Chỉnh sửa</button>
+                        <button onclick="deleteAppointment(${appointment.id})" class="btn btn-sm btn-danger">🗑️ Xóa</button>
+                        ${appointment.status === 'completed' ? '' : `<button onclick="studentCompleteAppointment(${appointment.id})" class="btn btn-sm" style="background:#28a745;">✅ Đánh dấu hoàn thành</button>`}
+                    </div>
                 </div>
-                <p><strong>Thời gian:</strong> ${appointment.scheduled_time ? new Date(appointment.scheduled_time).toLocaleString() : 'Chưa xác định'}</p>
-                <p><strong>Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
-                <p><strong>Ngày tạo:</strong> ${new Date(appointment.created_at).toLocaleDateString()}</p>
-                <div class="item-actions">
-                    <button onclick="editAppointment(${appointment.id})" class="btn btn-sm">Chỉnh sửa</button>
-                    <button onclick="deleteAppointment(${appointment.id})" class="btn btn-sm btn-danger">Xóa</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         appointmentsList.innerHTML = appointmentsHtml || '<p>Chưa có lịch hẹn nào</p>';
+    }
+}
+
+// Student marks an appointment as completed
+function studentCompleteAppointment(appointmentId) {
+    try {
+        // Update in user-specific data
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        if (Array.isArray(userSampleData.appointments)) {
+            const idx = userSampleData.appointments.findIndex(a => a.id === appointmentId);
+            if (idx !== -1) {
+                userSampleData.appointments[idx].status = 'completed';
+                localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+            }
+        }
+
+        // Mirror to system-level appointments in localStorage
+        const sysAppointments = getStore('appointments', []);
+        const sIdx = sysAppointments.findIndex(a => a.id === appointmentId);
+        if (sIdx !== -1) {
+            sysAppointments[sIdx].status = 'completed';
+            setStore('appointments', sysAppointments);
+        }
+
+        // Refresh UI and feedback mentor list
+        loadAppointments();
+        loadMentorsForFeedback();
+        alert('✅ Đã đánh dấu hoàn thành buổi hẹn. Bạn có thể vào mục Đánh giá để đánh giá mentor.');
+    } catch (e) {
+        console.error('Error completing appointment:', e);
+        alert('Có lỗi xảy ra khi cập nhật trạng thái.');
+    }
+}
+
+// Edit appointment function
+function editAppointment(appointmentId) {
+    // Try to find appointment in user sample data first
+    const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+    let appointment = userSampleData.appointments?.find(apt => apt.id === appointmentId);
+    
+    // If not found in user data, try global sample data
+    if (!appointment) {
+        appointment = SAMPLE_DATA.appointments?.find(apt => apt.id === appointmentId);
+    }
+    
+    if (!appointment) {
+        alert('Không tìm thấy lịch hẹn');
+        return;
+    }
+    
+    // Create edit form
+    const editForm = `
+        <div class="edit-appointment-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>✏️ Chỉnh sửa lịch hẹn</h2>
+                    <button onclick="closeEditModal()" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editAppointmentForm">
+                        <div class="form-group">
+                            <label>Mentor:</label>
+                            <select id="editMentorId" required>
+                                ${SAMPLE_DATA.mentors.map(mentor => 
+                                    `<option value="${mentor.id}" ${mentor.id === appointment.mentor_id ? 'selected' : ''}>${mentor.name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ngày hẹn:</label>
+                            <input type="date" id="editAppointmentDate" value="${appointment.scheduled_time.split('T')[0]}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Giờ hẹn:</label>
+                            <input type="time" id="editAppointmentTime" value="${appointment.scheduled_time.split('T')[1].substring(0,5)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Thời lượng (phút):</label>
+                            <select id="editAppointmentDuration" required>
+                                <option value="30" ${appointment.duration === 30 ? 'selected' : ''}>30 phút</option>
+                                <option value="60" ${appointment.duration === 60 ? 'selected' : ''}>60 phút</option>
+                                <option value="90" ${appointment.duration === 90 ? 'selected' : ''}>90 phút</option>
+                                <option value="120" ${appointment.duration === 120 ? 'selected' : ''}>120 phút</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú:</label>
+                            <textarea id="editAppointmentNotes" rows="3">${appointment.notes || ''}</textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                            <button type="button" onclick="closeEditModal()" class="btn btn-secondary">❌ Hủy</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', editForm);
+    
+    // Add form submit handler
+    document.getElementById('editAppointmentForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleEditAppointment(appointmentId);
+    });
+}
+
+// Handle edit appointment
+function handleEditAppointment(appointmentId) {
+    const mentorId = document.getElementById('editMentorId').value;
+    const appointmentDate = document.getElementById('editAppointmentDate').value;
+    const appointmentTime = document.getElementById('editAppointmentTime').value;
+    const appointmentDuration = document.getElementById('editAppointmentDuration').value;
+    const notes = document.getElementById('editAppointmentNotes').value;
+    
+    if (!mentorId || !appointmentDate || !appointmentTime) {
+        alert('Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    // Get user sample data
+    const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+    
+    // Find and update appointment in user data first
+    let appointmentIndex = userSampleData.appointments?.findIndex(apt => apt.id === appointmentId);
+    let appointmentToUpdate = userSampleData.appointments?.[appointmentIndex];
+    
+    // If not found in user data, try global sample data
+    if (appointmentIndex === -1 || !appointmentToUpdate) {
+        appointmentIndex = SAMPLE_DATA.appointments?.findIndex(apt => apt.id === appointmentId);
+        appointmentToUpdate = SAMPLE_DATA.appointments?.[appointmentIndex];
+    }
+    
+    if (appointmentIndex === -1 || !appointmentToUpdate) {
+        alert('Không tìm thấy lịch hẹn');
+        return;
+    }
+    
+    // Calculate new cost
+    const newCost = Math.ceil(parseInt(appointmentDuration) / 60) * 500;
+    const oldCost = Math.ceil(appointmentToUpdate.duration / 60) * 500;
+    const costDifference = newCost - oldCost;
+    
+    // Check wallet if cost increased
+    if (costDifference > 0) {
+        const currentBalance = userSampleData.wallet?.balance || 0;
+        
+        if (currentBalance < costDifference) {
+            alert(`❌ Số dư không đủ để thanh toán phần chênh lệch!\n\n💰 Cần thêm: ${costDifference} điểm\n💳 Hiện có: ${currentBalance} điểm`);
+            return;
+        }
+        
+        // Deduct additional cost
+        userSampleData.wallet.balance -= costDifference;
+        
+        // Add transaction record
+        const transaction = {
+            id: Date.now(),
+            type: 'appointment_edit_payment',
+            amount: -costDifference,
+            description: `Thanh toán chênh lệch chỉnh sửa lịch hẹn`,
+            timestamp: new Date().toISOString()
+        };
+        userSampleData.wallet.transactions.push(transaction);
+        
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+    }
+    
+    // Update appointment
+    const scheduledTime = `${appointmentDate}T${appointmentTime}:00`;
+    const updatedAppointment = {
+        ...appointmentToUpdate,
+        mentor_id: parseInt(mentorId),
+        scheduled_time: scheduledTime,
+        duration: parseInt(appointmentDuration),
+        notes: notes || '',
+        updated_at: new Date().toISOString()
+    };
+    
+    // Update in user data if it exists there, otherwise update in global data
+    if (userSampleData.appointments && userSampleData.appointments[appointmentIndex]) {
+        userSampleData.appointments[appointmentIndex] = updatedAppointment;
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+    } else {
+        SAMPLE_DATA.appointments[appointmentIndex] = updatedAppointment;
+    }
+    
+    alert(`✅ Chỉnh sửa lịch hẹn thành công!\n\n👨‍💻 Mentor: ${mentorId}\n📅 Thời gian: ${formatDateTime(scheduledTime)}\n⏱️ Thời lượng: ${appointmentDuration} phút${costDifference > 0 ? `\n💰 Đã thanh toán thêm: ${costDifference} điểm` : ''}`);
+    
+    // Close modal and reload
+    closeEditModal();
+    loadAppointments();
+    loadWallet();
+}
+
+// Close edit modal
+function closeEditModal() {
+    const modal = document.querySelector('.edit-appointment-modal');
+    if (modal) {
+        modal.remove();
     }
 }
 
@@ -1306,19 +1789,61 @@ async function handleAddAppointment(e) {
             created_at: new Date().toISOString()
         };
         
+        // Calculate cost (500 points per hour)
+        const cost = Math.ceil(parseInt(appointmentDuration) / 60) * 500;
+        
+        // Check wallet balance
+        const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+        const currentBalance = userSampleData.wallet?.balance || 0;
+        
+        if (currentBalance < cost) {
+            alert(`❌ Số dư không đủ!\n\n💰 Cần: ${cost} điểm\n💳 Hiện có: ${currentBalance} điểm\n\nVui lòng nạp thêm điểm vào ví!`);
+            return;
+        }
+        
+        // Deduct points from wallet
+        if (!userSampleData.wallet) {
+            userSampleData.wallet = { balance: 0, transactions: [] };
+        }
+        userSampleData.wallet.balance -= cost;
+        
+        // Add transaction record
+        const transaction = {
+            id: Date.now(),
+            type: 'appointment_payment',
+            amount: -cost,
+            description: `Thanh toán lịch hẹn với mentor ${mentorId}`,
+            timestamp: new Date().toISOString()
+        };
+        userSampleData.wallet.transactions.push(transaction);
+        
+        // Add to user list (so student's list shows it)
+        if (!Array.isArray(userSampleData.appointments)) {
+            userSampleData.appointments = [];
+        }
+        userSampleData.appointments.push(newAppointment);
+
         // Add to sample data
         if (!SAMPLE_DATA.appointments) {
             SAMPLE_DATA.appointments = [];
         }
         SAMPLE_DATA.appointments.push(newAppointment);
+        // Also persist to system-level localStorage so Admin and feedback can see it
+        const sysAppointments = getStore('appointments', []);
+        sysAppointments.push(newAppointment);
+        setStore('appointments', sysAppointments);
         
-        alert(`Đặt lịch hẹn thành công!\nMentor: ${mentorId}\nThời gian: ${new Date(scheduledTime).toLocaleString()}\nThời lượng: ${appointmentDuration} phút`);
+        // Save updated data
+        localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+        
+        alert(`✅ Đặt lịch hẹn thành công!\n\n👨‍💻 Mentor: ${mentorId}\n📅 Thời gian: ${formatDateTime(scheduledTime)}\n⏱️ Thời lượng: ${appointmentDuration} phút\n💰 Đã thanh toán: ${cost} điểm\n💳 Số dư còn lại: ${userSampleData.wallet.balance} điểm`);
         
         // Clear form
         document.getElementById('appointmentForm').reset();
         
-        // Reload appointments
+        // Reload appointments and wallet
         loadAppointments();
+        loadWallet();
         
     } catch (error) {
         console.error('Error adding appointment:', error);
@@ -1331,11 +1856,25 @@ async function deleteAppointment(id) {
         try {
             // Remove from sample data
             if (SAMPLE_DATA.appointments) {
-                SAMPLE_DATA.appointments = SAMPLE_DATA.appointments.filter(apt => apt.id !== id);
+                SAMPLE_DATA.appointments = SAMPLE_DATA.appointments.filter(apt => Number(apt.id) !== Number(id));
             }
+            // Remove from user data
+            const userSampleData = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+            if (Array.isArray(userSampleData.appointments)) {
+                userSampleData.appointments = userSampleData.appointments.filter(apt => Number(apt.id) !== Number(id));
+                localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+            }
+            // Remove from system-level localStorage
+            const sysAppointments = getStore('appointments', []);
+            const nextSys = sysAppointments.filter(apt => Number(apt.id) !== Number(id));
+            setStore('appointments', nextSys);
             
             alert('Xóa lịch hẹn thành công!');
             loadAppointments();
+            // Also refresh feedback list in case it affects available mentors
+            if (typeof loadMentorsForFeedback === 'function') {
+                loadMentorsForFeedback();
+            }
         } catch (error) {
             console.error('Error deleting appointment:', error);
             alert('Có lỗi xảy ra khi xóa lịch hẹn.');
@@ -1405,7 +1944,7 @@ async function loadMentorAppointments() {
                     <h4>Lịch hẹn với Student ${appointment.student_id}</h4>
                     <span class="appointment-status status-${appointment.status}">${appointment.status === 'pending' ? 'Chờ xác nhận' : 'Đã hoàn thành'}</span>
                 </div>
-                <p><strong>📅 Thời gian:</strong> ${new Date(appointment.scheduled_time).toLocaleString('vi-VN')}</p>
+                <p><strong>📅 Thời gian:</strong> ${formatDateTime(appointment.scheduled_time)}</p>
                 <p><strong>⏱️ Thời lượng:</strong> ${appointment.duration || 60} phút</p>
                 <p><strong>📝 Ghi chú:</strong> ${appointment.notes || 'Không có ghi chú'}</p>
                 <div class="appointment-actions">
@@ -1460,7 +1999,7 @@ async function loadMentorFeedback() {
                     <span class="feedback-rating rating-${feedback.rating}">${'⭐'.repeat(feedback.rating)} (${feedback.rating}/5)</span>
                 </div>
                 <p><strong>💬 Nhận xét:</strong> ${feedback.comment}</p>
-                <p><strong>📅 Ngày:</strong> ${new Date(feedback.created_at).toLocaleDateString('vi-VN')}</p>
+                <p><strong>📅 Ngày:</strong> ${formatDate(feedback.created_at)}</p>
             </div>
         `).join('');
         
@@ -1474,8 +2013,8 @@ async function loadMentorFeedback() {
 // Admin functions
 async function loadUserManagement() {
     try {
-        // Load sample users for demo
-        const users = SAMPLE_DATA.users || [];
+        // Load users from localStorage for persistence
+        const users = getStore('users', []);
         
         // Count users by role
         const students = users.filter(u => u.role === 'student').length;
@@ -1495,7 +2034,7 @@ async function loadUserManagement() {
                     <span class="item-status status-${user.role}">${user.role.toUpperCase()}</span>
                 </div>
                 <p><strong>Email:</strong> ${user.email}</p>
-                <p><strong>Ngày tạo:</strong> ${new Date(user.created_at).toLocaleDateString()}</p>
+                <p><strong>Ngày tạo:</strong> ${formatDate(user.created_at)}</p>
                 <div class="item-actions">
                     <button onclick="editUser(${user.id})" class="btn btn-sm">Chỉnh sửa</button>
                     <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">Xóa</button>
@@ -1509,10 +2048,34 @@ async function loadUserManagement() {
     }
 }
 
+// Admin: Edit user (demo: update email/role in SAMPLE_DATA)
+function editUser(userId) {
+    const users = getStore('users', []);
+    const user = users.find(u => u.id === userId);
+    if (!user) return alert('Không tìm thấy người dùng');
+    const newEmail = prompt('Nhập email mới:', user.email || '');
+    if (newEmail === null) return; // cancelled
+    const newRole = prompt('Nhập vai trò mới (admin|mentor|student):', user.role || 'student');
+    if (!newRole) return;
+    user.email = newEmail;
+    user.role = newRole.toLowerCase();
+    setStore('users', users);
+    loadUserManagement();
+}
+
+// Admin: Delete user (demo: remove from SAMPLE_DATA)
+function deleteUser(userId) {
+    if (!confirm('Bạn có chắc muốn xóa người dùng này?')) return;
+    const users = getStore('users', []);
+    const next = users.filter(u => u.id !== userId);
+    setStore('users', next);
+    loadUserManagement();
+}
+
 async function loadProjectManagement() {
     try {
-        // Load project groups as projects
-        const projects = SAMPLE_DATA.projectGroups || [];
+        // Load project groups as projects from localStorage
+        const projects = getStore('projectGroups', []);
         
         // Count projects by status
         const activeProjects = projects.filter(p => p.status === 'active').length;
@@ -1534,7 +2097,7 @@ async function loadProjectManagement() {
                 <p><strong>Chủ đề:</strong> ${project.topic}</p>
                 <p><strong>Mô tả:</strong> ${project.description || 'Không có mô tả'}</p>
                 <p><strong>Thành viên:</strong> ${project.member_count || 0} người</p>
-                <p><strong>Ngày tạo:</strong> ${new Date(project.created_at).toLocaleDateString()}</p>
+                <p><strong>Ngày tạo:</strong> ${formatDate(project.created_at)}</p>
                 <div class="item-actions">
                     <button onclick="editProject(${project.id})" class="btn btn-sm">Chỉnh sửa</button>
                     <button onclick="deleteProject(${project.id})" class="btn btn-sm btn-danger">Xóa</button>
@@ -1551,18 +2114,21 @@ async function loadProjectManagement() {
 async function loadReports() {
     try {
         // Calculate statistics
-        const users = SAMPLE_DATA.users || [];
-        const appointments = SAMPLE_DATA.appointments || [];
-        const projectGroups = SAMPLE_DATA.projectGroups || [];
-        const walletTransactions = SAMPLE_DATA.walletTransactions || [];
+        const users = getStore('users', []);
+        const appointments = getStore('appointments', []);
+        const projectGroups = getStore('projectGroups', []);
+        const feedbacks = getStore('feedbacks', []);
         
-        // Calculate revenue
-        const totalRevenue = walletTransactions
-            .filter(t => t.type === 'earn')
-            .reduce((sum, t) => sum + t.amount, 0);
+        // Calculate revenue based on appointments (500 điểm/giờ)
+        const POINTS_PER_HOUR = 500;
+        const totalRevenue = appointments
+            .filter(a => a.status !== 'cancelled')
+            .reduce((sum, a) => sum + Math.ceil((a.duration || 60) / 60) * POINTS_PER_HOUR, 0);
         
-        // Calculate average rating (mock data)
-        const avgRating = 4.7;
+        // Calculate average rating
+        const avgRating = feedbacks.length
+            ? (feedbacks.reduce((s, f) => s + (f.rating || 0), 0) / feedbacks.length).toFixed(1)
+            : '0.0';
         
         // Active users (users with appointments or projects)
         const activeUsers = new Set([
@@ -1583,15 +2149,41 @@ async function loadReports() {
 
 async function loadNotifications() {
     try {
-        // Load notifications (static for now)
-        console.log('Loading notifications...');
-        
         // Add event listener for notification form
         const notificationForm = document.getElementById('notificationForm');
         if (notificationForm) {
             notificationForm.addEventListener('submit', handleSendNotification);
         }
         
+        // Ensure in-memory container exists
+        if (!SAMPLE_DATA.notifications) {
+            SAMPLE_DATA.notifications = [];
+        }
+
+        // Merge notifications from localStorage and SAMPLE_DATA
+        const stored = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
+        const merged = [...SAMPLE_DATA.notifications, ...stored]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Render list
+        const listEl = document.getElementById('notificationsList');
+        if (listEl) {
+            if (merged.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">Chưa có thông báo nào</p>';
+            } else {
+                listEl.innerHTML = merged.map(n => `
+                    <div class="item-card">
+                        <div class="item-header">
+                            <h4 class="item-title">${n.title}</h4>
+                            <span class="item-status status-${n.status || 'success'}">${(n.status || 'sent') === 'sent' ? 'Đã gửi' : 'Đang gửi'}</span>
+                        </div>
+                        <p><strong>Gửi đến:</strong> ${n.target === 'all' ? 'Tất cả người dùng' : n.target}</p>
+                        <p><strong>Ngày gửi:</strong> ${formatDate(n.created_at)}</p>
+                        <p>${n.content}</p>
+                    </div>
+                `).join('');
+            }
+        }
     } catch (error) {
         console.error('Error loading notifications:', error);
     }
@@ -1626,6 +2218,11 @@ async function handleSendNotification(e) {
             SAMPLE_DATA.notifications = [];
         }
         SAMPLE_DATA.notifications.push(newNotification);
+
+        // Persist to localStorage history for Admin
+        const stored = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
+        stored.push(newNotification);
+        localStorage.setItem('adminNotifications', JSON.stringify(stored));
         
         alert(`Gửi thông báo thành công!\nTiêu đề: ${title}\nGửi đến: ${target}`);
         
@@ -1768,6 +2365,13 @@ function updateAppointmentStatus(appointmentId, newStatus) {
         const appointment = SAMPLE_DATA.appointments.find(apt => apt.id === appointmentId);
         if (appointment) {
             appointment.status = newStatus;
+            // Mirror to localStorage system appointments as well
+            const sysAppointments = getStore('appointments', []);
+            const idx = sysAppointments.findIndex(a => a.id === appointmentId);
+            if (idx !== -1) {
+                sysAppointments[idx].status = newStatus;
+                setStore('appointments', sysAppointments);
+            }
             
             // Reload the appointments list
             loadMentorAppointments();
@@ -1786,6 +2390,8 @@ function createUserSampleData() {
     try {
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         if (!currentUser.id) return;
+        
+        console.log('Creating new user sample data for:', currentUser);
         
         // Create user-specific sample data
         const userSampleData = {
@@ -1817,21 +2423,21 @@ function createUserSampleData() {
                     id: 1,
                     mentor_id: 1,
                     student_id: currentUser.id,
-                    scheduled_time: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
+                    scheduled_time: "2025-01-11T21:00:00.000Z", // 11/01/2025 9:00 PM
                     duration: 60,
                     notes: "Thảo luận về dự án JavaScript và cách tối ưu hóa performance",
                     status: "pending",
-                    created_at: new Date().toISOString()
+                    created_at: "2025-01-10T10:00:00.000Z" // 10/01/2025
                 },
                 {
                     id: 2,
                     mentor_id: 2,
                     student_id: currentUser.id,
-                    scheduled_time: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+                    scheduled_time: "2025-01-13T14:30:00.000Z", // 13/01/2025 2:30 PM
                     duration: 90,
                     notes: "Học Python Django và database design",
                     status: "pending",
-                    created_at: new Date().toISOString()
+                    created_at: "2025-01-10T10:00:00.000Z" // 10/01/2025
                 }
             ],
             projectGroups: [
@@ -1861,15 +2467,16 @@ function createUserSampleData() {
         
         // Save to localStorage
         localStorage.setItem('userSampleData', JSON.stringify(userSampleData));
+        console.log('Saved user sample data:', userSampleData);
         
         // Show welcome message
         setTimeout(() => {
-            alert(`🎉 Chào mừng ${currentUser.username}!\n\n✅ Đã tạo dữ liệu mẫu cho bạn:\n• 3 công việc cần làm\n• 2 lịch hẹn với mentor (1 và 3 ngày tới)\n• 1 nhóm dự án\n• 1000 điểm trong ví\n\nHãy khám phá các tính năng của MentorHub!`);
+            alert(`🎉 Chào mừng ${currentUser.username}!\n\n✅ Đã tạo dữ liệu mẫu cho bạn:\n• 3 công việc cần làm\n• 2 lịch hẹn với mentor (11/01 và 13/01)\n• 1 nhóm dự án\n• 1000 điểm trong ví\n\nHãy khám phá các tính năng của MentorHub!`);
         }, 500);
         
-        // Reload dashboard to show new data
+        // Show main app and load dashboard
         setTimeout(() => {
-            loadDashboard();
+            showMainApp();
         }, 1000);
         
     } catch (error) {
@@ -1878,6 +2485,31 @@ function createUserSampleData() {
 }
 
 // Utility functions
+function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    
+    // Bỏ số 0 ở đầu giờ nếu < 10
+    const finalHours = displayHours < 10 ? displayHours : displayHours;
+    
+    return `${day}/${month}/${year} ${finalHours}:${minutes} ${ampm}`;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+}
+
 function showError(elementId, message) {
     const errorElement = document.getElementById(elementId);
     if (errorElement) {
@@ -1893,3 +2525,5 @@ function showSuccess(elementId, message) {
         successElement.classList.remove('hidden');
     }
 }
+
+// Removed clearAndRecreateData (no longer needed)
