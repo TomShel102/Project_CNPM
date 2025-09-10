@@ -485,6 +485,18 @@ function showSection(section) {
         case 'mentorFeedback':
             loadMentorFeedback();
             break;
+        case 'mentorEarnings':
+            loadMentorEarnings();
+            break;
+        case 'mentorChat':
+            loadMentorChat();
+            break;
+        case 'mentorStatistics':
+            loadMentorStatistics();
+            break;
+        case 'mentorDashboard':
+            loadMentorDashboard();
+            break;
         case 'userManagement':
             loadUserManagement();
             break;
@@ -1977,8 +1989,264 @@ async function loadMentorProfile() {
 }
 
 async function loadMentorSchedule() {
-    // Schedule is static for now
-    console.log('Loading mentor schedule...');
+    try {
+        // Initialize schedule management
+        initializeScheduleManagement();
+        loadTimeOffList();
+        
+        // Setup form handlers
+        document.getElementById('availabilityForm').addEventListener('submit', saveAvailabilitySettings);
+        document.getElementById('timeOffForm').addEventListener('submit', addTimeOff);
+        document.getElementById('addTimeSlotForm').addEventListener('submit', handleAddTimeSlot);
+        
+        console.log('Mentor schedule loaded successfully');
+    } catch (error) {
+        console.error('Error loading mentor schedule:', error);
+    }
+}
+
+// Schedule Management Functions
+function initializeScheduleManagement() {
+    // Add click handlers to existing time slots for removal
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.addEventListener('click', function() {
+            if (confirm('Bạn muốn xóa slot thời gian này?')) {
+                this.remove();
+                saveScheduleChanges();
+            }
+        });
+    });
+}
+
+function addTimeSlot(day) {
+    document.getElementById('slotDay').value = day;
+    document.getElementById('addTimeSlotModal').style.display = 'block';
+}
+
+function closeTimeSlotModal() {
+    document.getElementById('addTimeSlotModal').style.display = 'none';
+    document.getElementById('addTimeSlotForm').reset();
+}
+
+function handleAddTimeSlot(e) {
+    e.preventDefault();
+    
+    const day = document.getElementById('slotDay').value;
+    const startTime = document.getElementById('slotStartTime').value;
+    const endTime = document.getElementById('slotEndTime').value;
+    const type = document.getElementById('slotType').value;
+    
+    if (startTime >= endTime) {
+        alert('Thời gian kết thúc phải sau thời gian bắt đầu!');
+        return;
+    }
+    
+    // Check for conflicts
+    const daySlots = document.getElementById(`${day}-slots`);
+    const existingSlots = Array.from(daySlots.querySelectorAll('.time-slot'));
+    
+    const newStart = timeToMinutes(startTime);
+    const newEnd = timeToMinutes(endTime);
+    
+    const hasConflict = existingSlots.some(slot => {
+        const slotText = slot.textContent;
+        const [slotStart, slotEnd] = slotText.split(' - ');
+        const existingStart = timeToMinutes(slotStart);
+        const existingEnd = timeToMinutes(slotEnd);
+        
+        return (newStart < existingEnd && newEnd > existingStart);
+    });
+    
+    if (hasConflict) {
+        alert('Slot thời gian này bị trung với slot đã có!');
+        return;
+    }
+    
+    // Create new slot
+    const slotElement = document.createElement('div');
+    slotElement.className = 'time-slot';
+    slotElement.innerHTML = `${startTime} - ${endTime}`;
+    slotElement.addEventListener('click', function() {
+        if (confirm('Bạn muốn xóa slot thời gian này?')) {
+            this.remove();
+            saveScheduleChanges();
+        }
+    });
+    
+    daySlots.appendChild(slotElement);
+    
+    closeTimeSlotModal();
+    saveScheduleChanges();
+}
+
+function applyScheduleTemplate(template) {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    // Clear all slots first
+    days.forEach(day => {
+        document.getElementById(`${day}-slots`).innerHTML = '';
+    });
+    
+    let templateSlots = {};
+    
+    switch(template) {
+        case 'workingDays':
+            templateSlots = {
+                monday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00'],
+                tuesday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00'],
+                wednesday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00'],
+                thursday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00'],
+                friday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00']
+            };
+            break;
+        case 'fullWeek':
+            const allDaySlots = ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00', '15:00 - 16:00'];
+            days.forEach(day => {
+                templateSlots[day] = [...allDaySlots];
+            });
+            break;
+        case 'weekend':
+            templateSlots = {
+                saturday: ['09:00 - 10:00', '10:00 - 11:00', '14:00 - 15:00'],
+                sunday: ['09:00 - 10:00', '10:00 - 11:00']
+            };
+            break;
+    }
+    
+    // Apply template
+    Object.keys(templateSlots).forEach(day => {
+        const dayContainer = document.getElementById(`${day}-slots`);
+        templateSlots[day].forEach(slot => {
+            const slotElement = document.createElement('div');
+            slotElement.className = 'time-slot';
+            slotElement.innerHTML = slot;
+            slotElement.addEventListener('click', function() {
+                if (confirm('Bạn muốn xóa slot thời gian này?')) {
+                    this.remove();
+                    saveScheduleChanges();
+                }
+            });
+            dayContainer.appendChild(slotElement);
+        });
+    });
+    
+    saveScheduleChanges();
+}
+
+function clearAllSlots() {
+    if (confirm('Bạn có chắc chắn muốn xóa tất cả các slot thời gian?')) {
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        days.forEach(day => {
+            document.getElementById(`${day}-slots`).innerHTML = '';
+        });
+        saveScheduleChanges();
+    }
+}
+
+function saveScheduleChanges() {
+    // In real app, would save to backend
+    console.log('Schedule changes saved');
+    showSuccess('scheduleMessage', 'Lịch làm việc đã được cập nhật!');
+}
+
+function saveAvailabilitySettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        minSessionTime: document.getElementById('minSessionTime').value,
+        maxSessionsPerDay: document.getElementById('maxSessionsPerDay').value,
+        breakTime: document.getElementById('breakTime').value,
+        advanceBooking: document.getElementById('advanceBooking').value
+    };
+    
+    // Save to local storage for demo
+    localStorage.setItem('mentorAvailabilitySettings', JSON.stringify(settings));
+    
+    alert('Cài đặt đã được lưu!');
+}
+
+function addTimeOff(e) {
+    e.preventDefault();
+    
+    const date = document.getElementById('timeOffDate').value;
+    const startTime = document.getElementById('timeOffStart').value;
+    const endTime = document.getElementById('timeOffEnd').value;
+    const reason = document.getElementById('timeOffReason').value;
+    
+    if (!date) {
+        alert('Vui lòng chọn ngày nghỉ!');
+        return;
+    }
+    
+    const timeOffItem = {
+        id: Date.now(),
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        reason: reason || 'Không có lý do'
+    };
+    
+    // Get existing time off list
+    let timeOffList = JSON.parse(localStorage.getItem('mentorTimeOff') || '[]');
+    timeOffList.push(timeOffItem);
+    localStorage.setItem('mentorTimeOff', JSON.stringify(timeOffList));
+    
+    // Refresh the list display
+    loadTimeOffList();
+    
+    // Clear form
+    document.getElementById('timeOffForm').reset();
+    
+    alert('Đã thêm thời gian nghỉ!');
+}
+
+function loadTimeOffList() {
+    const timeOffList = JSON.parse(localStorage.getItem('mentorTimeOff') || '[]');
+    const container = document.getElementById('timeOffList');
+    
+    if (timeOffList.length === 0) {
+        container.innerHTML = '<p>Chưa có thời gian nghỉ nào được đặt.</p>';
+        return;
+    }
+    
+    const timeOffHtml = timeOffList.map(item => {
+        const dateStr = new Date(item.date).toLocaleDateString('vi-VN');
+        const timeStr = item.startTime && item.endTime ? 
+            `${item.startTime} - ${item.endTime}` : 'Cả ngày';
+        
+        return `
+            <div class="time-off-item">
+                <div>
+                    <strong>${dateStr}</strong> - ${timeStr}<br>
+                    <small>Lý do: ${item.reason}</small>
+                </div>
+                <button onclick="removeTimeOff(${item.id})" class="btn-sm" style="background: #dc3545;">Xóa</button>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = timeOffHtml;
+}
+
+function removeTimeOff(id) {
+    if (confirm('Bạn có chắc chắn muốn xóa thời gian nghỉ này?')) {
+        let timeOffList = JSON.parse(localStorage.getItem('mentorTimeOff') || '[]');
+        timeOffList = timeOffList.filter(item => item.id !== id);
+        localStorage.setItem('mentorTimeOff', JSON.stringify(timeOffList));
+        loadTimeOffList();
+    }
+}
+
+// Utility functions for time management
+function timeToMinutes(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+}
+
+function minutesToTime(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
 async function loadMentorAppointments() {
@@ -2073,6 +2341,613 @@ async function loadMentorFeedback() {
     } catch (error) {
         console.error('Error loading mentor feedback:', error);
         document.getElementById('mentorFeedbackList').innerHTML = '<p>Có lỗi khi tải đánh giá</p>';
+    }
+}
+
+// Mentor Earnings functions
+async function loadMentorEarnings() {
+    try {
+        // Generate sample earnings data
+        const mentorId = currentUser?.id || 1;
+        const appointments = SAMPLE_DATA.appointments || [];
+        const mentorAppointments = appointments.filter(apt => apt.mentor_id === mentorId && apt.status === 'completed');
+        
+        // Calculate earnings (assuming 500k VND per hour)
+        const hourlyRate = 500000;
+        const totalHours = mentorAppointments.reduce((sum, apt) => sum + (apt.duration / 60), 0);
+        const totalEarnings = totalHours * hourlyRate;
+        
+        // Monthly earnings
+        const thisMonth = new Date();
+        const monthlyAppointments = mentorAppointments.filter(apt => {
+            const aptDate = new Date(apt.scheduled_time);
+            return aptDate.getMonth() === thisMonth.getMonth() && aptDate.getFullYear() === thisMonth.getFullYear();
+        });
+        const monthlyHours = monthlyAppointments.reduce((sum, apt) => sum + (apt.duration / 60), 0);
+        const monthlyEarnings = monthlyHours * hourlyRate;
+        
+        // Weekly earnings
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const weeklyAppointments = mentorAppointments.filter(apt => new Date(apt.scheduled_time) >= oneWeekAgo);
+        const weeklyHours = weeklyAppointments.reduce((sum, apt) => sum + (apt.duration / 60), 0);
+        const weeklyEarnings = weeklyHours * hourlyRate;
+        
+        // Update UI
+        document.getElementById('mentorTotalEarnings').textContent = formatCurrency(totalEarnings);
+        document.getElementById('mentorMonthlyEarnings').textContent = formatCurrency(monthlyEarnings);
+        document.getElementById('mentorWeeklyEarnings').textContent = formatCurrency(weeklyEarnings);
+        document.getElementById('mentorHourlyRate').textContent = formatCurrency(hourlyRate);
+        
+        // Generate earnings history
+        const earningsHistory = mentorAppointments.map(apt => ({
+            date: apt.scheduled_time,
+            amount: (apt.duration / 60) * hourlyRate,
+            student: `Student ${apt.student_id}`,
+            duration: apt.duration,
+            type: 'Buổi học 1:1'
+        }));
+        
+        displayEarningsHistory(earningsHistory);
+        createEarningsChart(earningsHistory);
+        
+    } catch (error) {
+        console.error('Error loading mentor earnings:', error);
+    }
+}
+
+function displayEarningsHistory(earnings) {
+    const earningsHtml = earnings.map(earning => `
+        <div class="earning-item">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4>${earning.type}</h4>
+                    <p>Sinh viên: ${earning.student}</p>
+                    <p>Thời gian: ${earning.duration} phút</p>
+                    <small>${formatDateTime(earning.date)}</small>
+                </div>
+                <div class="earning-amount">
+                    <h3 style="color: #28a745; margin: 0;">${formatCurrency(earning.amount)}</h3>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('mentorEarningsList').innerHTML = earningsHtml || '<p>Chưa có giao dịch nào</p>';
+}
+
+function createEarningsChart(earnings) {
+    // Simple chart implementation using canvas
+    const canvas = document.getElementById('earningsChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Sample chart - would use Chart.js in real app
+    ctx.fillStyle = '#28a745';
+    ctx.fillRect(50, 150, 30, 50);
+    ctx.fillRect(100, 130, 30, 70);
+    ctx.fillRect(150, 140, 30, 60);
+    ctx.fillRect(200, 120, 30, 80);
+    ctx.fillRect(250, 110, 30, 90);
+    ctx.fillRect(300, 100, 30, 100);
+    
+    // Labels
+    ctx.fillStyle = '#333';
+    ctx.font = '12px Arial';
+    ctx.fillText('T1', 55, 215);
+    ctx.fillText('T2', 105, 215);
+    ctx.fillText('T3', 155, 215);
+    ctx.fillText('T4', 205, 215);
+    ctx.fillText('T5', 255, 215);
+    ctx.fillText('T6', 305, 215);
+}
+
+function exportEarnings() {
+    // Simple export functionality
+    const earnings = document.getElementById('mentorEarningsList').innerText;
+    const blob = new Blob([earnings], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mentor-earnings-report.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Mentor Chat functions
+async function loadMentorChat() {
+    try {
+        // Generate sample chat data
+        const chats = [
+            {
+                id: 1,
+                studentName: 'Nguyễn Văn A',
+                lastMessage: 'Cảm ơn thầy về buổi học hôm nay!',
+                timestamp: '2025-01-15T10:30:00Z',
+                unread: 2,
+                online: true
+            },
+            {
+                id: 2,
+                studentName: 'Trần Thị B',
+                lastMessage: 'Thầy có thể giải thích thêm về React hooks không?',
+                timestamp: '2025-01-15T09:15:00Z',
+                unread: 0,
+                online: false
+            },
+            {
+                id: 3,
+                studentName: 'Lê Văn C',
+                lastMessage: 'Em sẽ chuẩn bị bài tập và gửi lại thầy',
+                timestamp: '2025-01-14T16:45:00Z',
+                unread: 1,
+                online: true
+            }
+        ];
+        
+        const chatListHtml = chats.map(chat => `
+            <div class="chat-item" onclick="openChat(${chat.id}, '${chat.studentName}')">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0;">${chat.studentName}</h4>
+                        <p style="margin: 0; color: #6c757d; font-size: 14px;">${chat.lastMessage}</p>
+                        <small style="color: #999;">${formatDateTime(chat.timestamp)}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        ${chat.online ? '<span style="color: #28a745;">●</span>' : '<span style="color: #6c757d;">●</span>'}
+                        ${chat.unread > 0 ? `<div style="background: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-top: 5px;">${chat.unread}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('chatList').innerHTML = chatListHtml;
+        
+    } catch (error) {
+        console.error('Error loading mentor chat:', error);
+    }
+}
+
+function openChat(chatId, studentName) {
+    // Update chat header
+    document.getElementById('chatTitle').textContent = `Chat với ${studentName}`;
+    
+    // Enable chat input
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = messageInput.nextElementSibling;
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    
+    // Load chat messages
+    const sampleMessages = [
+        { text: 'Chào thầy! Em có thể hỏi về bài tập không?', sent: false, time: '10:00' },
+        { text: 'Chào em! Tất nhiên, em hỏi đi.', sent: true, time: '10:01' },
+        { text: 'Em đang gặp khó khăn với phần useState trong React', sent: false, time: '10:02' },
+        { text: 'Được, thầy sẽ giải thích chi tiết cho em.', sent: true, time: '10:03' }
+    ];
+    
+    const messagesHtml = sampleMessages.map(msg => `
+        <div class="message-item ${msg.sent ? 'sent' : 'received'}">
+            <div class="message-bubble">
+                ${msg.text}
+                <div style="font-size: 11px; opacity: 0.7; margin-top: 5px;">${msg.time}</div>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('chatMessages').innerHTML = messagesHtml;
+    
+    // Mark chat as active
+    document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+    event.target.closest('.chat-item').classList.add('active');
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    // Add message to chat
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageHtml = `
+        <div class="message-item sent">
+            <div class="message-bubble">
+                ${message}
+                <div style="font-size: 11px; opacity: 0.7; margin-top: 5px;">${new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}</div>
+            </div>
+        </div>
+    `;
+    
+    messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Clear input
+    messageInput.value = '';
+}
+
+function startVideoCall() {
+    alert('Tính năng video call sẽ được phát triển trong phiên bản tiếp theo!');
+}
+
+function endChat() {
+    document.getElementById('chatTitle').textContent = 'Chọn một cuộc trò chuyện';
+    document.getElementById('chatMessages').innerHTML = '<div class="welcome-message"><p>Chọn một sinh viên để bắt đầu trò chuyện</p></div>';
+    
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = messageInput.nextElementSibling;
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    messageInput.value = '';
+    
+    document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+}
+
+function attachFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.pdf,.doc,.docx';
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // In real app, would upload file and send message
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageHtml = `
+                <div class="message-item sent">
+                    <div class="message-bubble">
+                        📎 Đã gửi file: ${file.name}
+                        <div style="font-size: 11px; opacity: 0.7; margin-top: 5px;">${new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}</div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    };
+    input.click();
+}
+
+// Mentor Statistics functions
+async function loadMentorStatistics() {
+    try {
+        // Generate sample statistics
+        const appointments = SAMPLE_DATA.appointments || [];
+        const mentorId = currentUser?.id || 1;
+        const mentorAppointments = appointments.filter(apt => apt.mentor_id === mentorId);
+        
+        // Calculate stats
+        const totalHours = mentorAppointments.reduce((sum, apt) => sum + (apt.duration / 60), 0);
+        const avgSessionTime = mentorAppointments.length > 0 ? 
+            (mentorAppointments.reduce((sum, apt) => sum + apt.duration, 0) / mentorAppointments.length) : 0;
+        
+        // Student retention (students who booked more than once)
+        const studentCounts = {};
+        mentorAppointments.forEach(apt => {
+            studentCounts[apt.student_id] = (studentCounts[apt.student_id] || 0) + 1;
+        });
+        const returningStudents = Object.values(studentCounts).filter(count => count > 1).length;
+        const retentionRate = Object.keys(studentCounts).length > 0 ? 
+            (returningStudents / Object.keys(studentCounts).length * 100) : 0;
+        
+        // Cancellation rate
+        const canceledAppointments = appointments.filter(apt => apt.mentor_id === mentorId && apt.status === 'cancelled').length;
+        const totalScheduled = appointments.filter(apt => apt.mentor_id === mentorId).length;
+        const cancelationRate = totalScheduled > 0 ? (canceledAppointments / totalScheduled * 100) : 0;
+        
+        // Update UI
+        document.getElementById('totalHoursWorked').textContent = totalHours.toFixed(1);
+        document.getElementById('averageSessionTime').textContent = `${avgSessionTime.toFixed(0)} phút`;
+        document.getElementById('studentRetentionRate').textContent = `${retentionRate.toFixed(1)}%`;
+        document.getElementById('cancelationRate').textContent = `${cancelationRate.toFixed(1)}%`;
+        
+        // Create charts
+        createWeeklyChart();
+        createTimeDistributionChart();
+        createRatingTrendChart();
+        
+    } catch (error) {
+        console.error('Error loading mentor statistics:', error);
+    }
+}
+
+function createWeeklyChart() {
+    const canvas = document.getElementById('weeklyChart');
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Sample weekly data
+    const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    const values = [3, 5, 4, 6, 4, 2, 1];
+    
+    // Draw bars
+    ctx.fillStyle = '#007bff';
+    values.forEach((value, index) => {
+        const x = 50 + index * 45;
+        const height = value * 20;
+        ctx.fillRect(x, 150 - height, 30, height);
+    });
+    
+    // Draw labels
+    ctx.fillStyle = '#333';
+    ctx.font = '12px Arial';
+    days.forEach((day, index) => {
+        const x = 55 + index * 45;
+        ctx.fillText(day, x, 170);
+    });
+}
+
+function createTimeDistributionChart() {
+    const canvas = document.getElementById('timeDistributionChart');
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Simple pie chart
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 80;
+    
+    const data = [
+        { label: 'Sáng', value: 30, color: '#28a745' },
+        { label: 'Chiều', value: 45, color: '#007bff' },
+        { label: 'Tối', value: 25, color: '#ffc107' }
+    ];
+    
+    let currentAngle = 0;
+    data.forEach(segment => {
+        const sliceAngle = (segment.value / 100) * 2 * Math.PI;
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+        ctx.lineTo(centerX, centerY);
+        ctx.fillStyle = segment.color;
+        ctx.fill();
+        
+        currentAngle += sliceAngle;
+    });
+}
+
+function createRatingTrendChart() {
+    const canvas = document.getElementById('ratingTrendChart');
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Sample rating trend
+    const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+    const ratings = [4.2, 4.5, 4.3, 4.7, 4.8, 4.9];
+    
+    // Draw line chart
+    ctx.strokeStyle = '#28a745';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    ratings.forEach((rating, index) => {
+        const x = 50 + index * 50;
+        const y = 150 - (rating - 3) * 50; // Scale 3-5 to fit canvas
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+        
+        // Draw points
+        ctx.fillStyle = '#28a745';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+    });
+    
+    ctx.stroke();
+    
+    // Draw labels
+    ctx.fillStyle = '#333';
+    ctx.font = '12px Arial';
+    months.forEach((month, index) => {
+        const x = 45 + index * 50;
+        ctx.fillText(month, x, 170);
+    });
+}
+
+function refreshStats() {
+    loadMentorStatistics();
+}
+
+// Utility function for currency formatting
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('vi-VN').format(amount);
+}
+
+// Mentor Dashboard functions
+async function loadMentorDashboard() {
+    try {
+        // Load all dashboard data
+        await loadDashboardStats();
+        loadTodaySchedule();
+        loadRecentActivities();
+        updateMentorStatus();
+        
+        console.log('Mentor dashboard loaded successfully');
+    } catch (error) {
+        console.error('Error loading mentor dashboard:', error);
+    }
+}
+
+async function loadDashboardStats() {
+    const mentorId = currentUser?.id || 1;
+    const appointments = SAMPLE_DATA.appointments || [];
+    const feedbacks = SAMPLE_DATA.feedbacks || [];
+    
+    // Calculate stats
+    const mentorAppointments = appointments.filter(apt => apt.mentor_id === mentorId);
+    const completedSessions = mentorAppointments.filter(apt => apt.status === 'completed').length;
+    
+    // Monthly sessions
+    const thisMonth = new Date();
+    const monthlyAppointments = mentorAppointments.filter(apt => {
+        const aptDate = new Date(apt.scheduled_time);
+        return aptDate.getMonth() === thisMonth.getMonth() && aptDate.getFullYear() === thisMonth.getFullYear();
+    });
+    
+    // Active students (unique students this month)
+    const activeStudents = [...new Set(monthlyAppointments.map(apt => apt.student_id))].length;
+    
+    // Average rating
+    const mentorFeedbacks = feedbacks.filter(fb => fb.mentor_id === mentorId);
+    const averageRating = mentorFeedbacks.length > 0 ? 
+        (mentorFeedbacks.reduce((sum, fb) => sum + fb.rating, 0) / mentorFeedbacks.length).toFixed(1) : 0;
+    
+    // Monthly earnings (assuming 500k per hour)
+    const monthlyHours = monthlyAppointments.reduce((sum, apt) => sum + (apt.duration / 60), 0);
+    const monthlyEarnings = monthlyHours * 500000;
+    
+    // Update UI
+    document.getElementById('mentorDashTotalSessions').textContent = completedSessions;
+    document.getElementById('monthlySessionCount').textContent = monthlyAppointments.length;
+    document.getElementById('mentorDashActiveStudents').textContent = activeStudents;
+    document.getElementById('newStudentCount').textContent = Math.max(0, activeStudents - 2); // Mock new students
+    document.getElementById('mentorDashRating').textContent = averageRating;
+    document.getElementById('recentRatingCount').textContent = mentorFeedbacks.filter(fb => {
+        const fbDate = new Date(fb.created_at);
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        return fbDate >= oneWeekAgo;
+    }).length;
+    document.getElementById('mentorDashEarnings').textContent = formatCurrency(monthlyEarnings);
+    document.getElementById('earningsGrowth').textContent = '+15%'; // Mock growth
+}
+
+function loadTodaySchedule() {
+    const today = new Date().toDateString();
+    const appointments = SAMPLE_DATA.appointments || [];
+    const mentorId = currentUser?.id || 1;
+    
+    const todayAppointments = appointments.filter(apt => 
+        apt.mentor_id === mentorId && new Date(apt.scheduled_time).toDateString() === today
+    );
+    
+    if (todayAppointments.length === 0) {
+        document.getElementById('todayScheduleList').innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Không có lịch hẹn nào hôm nay</p>';
+        return;
+    }
+    
+    const scheduleHtml = todayAppointments.map(apt => {
+        const time = new Date(apt.scheduled_time).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
+        return `
+            <div class="schedule-item ${apt.status}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4>🎯 Buổi học với Student ${apt.student_id}</h4>
+                        <p>⏰ ${time} - ${apt.duration} phút</p>
+                        <p>📝 ${apt.notes || 'Không có ghi chú'}</p>
+                    </div>
+                    <div>
+                        <span class="status-badge ${apt.status}">${getStatusText(apt.status)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    document.getElementById('todayScheduleList').innerHTML = scheduleHtml;
+}
+
+function loadRecentActivities() {
+    // Generate sample recent activities
+    const activities = [
+        {
+            type: 'new',
+            icon: '📚',
+            text: 'Sinh viên mới đăng ký học với bạn',
+            time: '10 phút trước',
+            iconClass: 'new'
+        },
+        {
+            type: 'completed',
+            icon: '✅',
+            text: 'Hoàn thành buổi học React với Student 2',
+            time: '1 giờ trước',
+            iconClass: 'completed'
+        },
+        {
+            type: 'rating',
+            icon: '⭐',
+            text: 'Nhận đánh giá 5 sao từ Student 1',
+            time: '2 giờ trước',
+            iconClass: 'rating'
+        },
+        {
+            type: 'message',
+            icon: '💬',
+            text: 'Tin nhắn mới từ Student 3',
+            time: '3 giờ trước',
+            iconClass: 'new'
+        },
+        {
+            type: 'booking',
+            icon: '📅',
+            text: 'Lịch hẹn mới được đặt cho ngày mai',
+            time: '4 giờ trước',
+            iconClass: 'new'
+        }
+    ];
+    
+    const activitiesHtml = activities.map(activity => `
+        <div class="activity-item">
+            <div class="activity-icon ${activity.iconClass}">
+                ${activity.icon}
+            </div>
+            <div style="flex: 1;">
+                <p style="margin: 0 0 5px 0;">${activity.text}</p>
+                <small style="color: #666;">${activity.time}</small>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('recentActivitiesList').innerHTML = activitiesHtml;
+}
+
+function updateMentorStatus() {
+    // Update current status
+    document.getElementById('mentorCurrentStatus').textContent = 'Trực tuyến';
+    document.getElementById('availableSlotsToday').textContent = '3';
+    document.getElementById('onlineTime').textContent = '2h 30m';
+    document.getElementById('unreadMessages').textContent = '5';
+}
+
+function updateAvailabilityStatus() {
+    const currentStatus = document.getElementById('mentorCurrentStatus');
+    const statuses = [
+        { text: 'Trực tuyến', class: 'online' },
+        { text: 'Bận', class: 'busy' },
+        { text: 'Offline', class: 'offline' }
+    ];
+    
+    // Find current status index
+    let currentIndex = statuses.findIndex(s => currentStatus.textContent === s.text);
+    currentIndex = (currentIndex + 1) % statuses.length;
+    
+    const newStatus = statuses[currentIndex];
+    currentStatus.textContent = newStatus.text;
+    currentStatus.className = `status-badge ${newStatus.class}`;
+    
+    alert(`Trạng thái đã được cập nhật thành: ${newStatus.text}`);
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'pending': return 'Chờ xác nhận';
+        case 'completed': return 'Hoàn thành';
+        case 'cancelled': return 'Đã hủy';
+        default: return status;
     }
 }
 
