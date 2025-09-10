@@ -16,4 +16,19 @@ class UserModel(Base):
     avatar_url = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False) 
+    updated_at = Column(DateTime, nullable=False)
+    
+    def to_dict(self):
+        """Convert model to dictionary for JSON serialization"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'full_name': self.full_name,
+            'role': self.role.value if self.role else 'student',
+            'phone': self.phone,
+            'avatar_url': self.avatar_url,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        } 

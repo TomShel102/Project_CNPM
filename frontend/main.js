@@ -31,7 +31,13 @@ const DEFAULT_DATA = {
     feedbacks: [
         { id: 1, mentor_id: 1, student_id: 2, rating: 5, comment: 'Rất hữu ích', created_at: '2025-01-14T15:30:00Z' }
     ],
-    notifications: []
+    notifications: [],
+    mentorAvailabilities: [
+        // Weekly availability: weekday 1-5 (Mon-Fri), 09:00-17:00, slot 60m
+        { mentor_id: 1, weekday: [1,2,3,4,5], start: '09:00', end: '17:00', slotMinutes: 60 },
+        { mentor_id: 2, weekday: [1,3,5], start: '13:00', end: '18:00', slotMinutes: 60 },
+        { mentor_id: 3, weekday: [2,4], start: '08:00', end: '12:00', slotMinutes: 60 }
+    ]
 };
 
 // Lightweight storage helpers
@@ -66,7 +72,8 @@ function initAppData() {
         appointments: 'appointments',
         projectGroups: 'projectGroups',
         feedbacks: 'feedbacks',
-        notifications: 'notifications'
+        notifications: 'notifications',
+        mentorAvailabilities: 'mentorAvailabilities'
     };
     Object.keys(maps).forEach((k) => {
         const lsKey = k;
@@ -208,6 +215,9 @@ function setupEventListeners() {
     if (resetPasswordFormElement) {
         resetPasswordFormElement.addEventListener('submit', handleResetPassword);
     }
+    
+    // Profile form (will be setup dynamically when edit mode is enabled)
+    // The form submission is handled in enableProfileEdit() function
     
     console.log('Event listeners setup complete');
 }
@@ -410,11 +420,22 @@ function showSection(section) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
     
     // Show selected section
-    document.getElementById(section + 'Section').classList.add('active');
+    const sectionElement = document.getElementById(section + 'Section');
+    if (sectionElement) {
+        sectionElement.classList.add('active');
+    } else {
+        console.error(`Section element not found: ${section}Section`);
+        return;
+    }
     
-    // Update navigation
+    // Update navigation - only if it's not profile (profile is accessed via avatar)
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('nav' + section.charAt(0).toUpperCase() + section.slice(1)).classList.add('active');
+    if (section !== 'profile') {
+        const navButton = document.getElementById('nav' + section.charAt(0).toUpperCase() + section.slice(1));
+        if (navButton) {
+            navButton.classList.add('active');
+        }
+    }
     
     currentPage = section;
     
@@ -422,6 +443,9 @@ function showSection(section) {
     switch(section) {
         case 'dashboard':
             loadDashboard();
+            break;
+        case 'profile':
+            loadProfile();
             break;
         case 'todos':
             loadTodos();
@@ -1433,6 +1457,36 @@ async function loadMentorsForAppointment() {
                 mentorSelect.appendChild(option);
             });
             
+            // Render time slots based on availability and existing appointments
+            const dateEl = document.getElementById('appointmentDate');
+            const timeEl = document.getElementById('appointmentTime');
+            const durationEl = document.getElementById('appointmentDuration');
+            const renderSlots = () => {
+                if (!dateEl || !timeEl) return;
+                const mentorId = parseInt(mentorSelect.value, 10);
+                const dateStr = dateEl.value; // yyyy-mm-dd
+                const duration = parseInt((durationEl?.value || '60'), 10) || 60;
+                if (!mentorId || !dateStr) return;
+                const slots = getAvailableSlotsForDate(mentorId, dateStr, duration);
+                timeEl.innerHTML = '';
+                if (slots.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Không còn giờ trống';
+                    timeEl.appendChild(opt);
+                } else {
+                    slots.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t;
+                        opt.textContent = t;
+                        timeEl.appendChild(opt);
+                    });
+                }
+            };
+            mentorSelect.addEventListener('change', renderSlots);
+            if (dateEl) dateEl.addEventListener('change', renderSlots);
+            if (durationEl) durationEl.addEventListener('change', renderSlots);
+            
             console.log('Added', mentors.length, 'mentors to dropdown');
             console.log('Final dropdown options:', mentorSelect.options.length);
         } else {
@@ -1776,6 +1830,18 @@ async function handleAddAppointment(e) {
     try {
         // Combine date and time
         const scheduledTime = `${appointmentDate}T${appointmentTime}:00`;
+
+        // Validate availability & conflicts
+        const duration = parseInt(appointmentDuration);
+        const mentorIdNum = parseInt(mentorId);
+        if (!isInAvailability(mentorIdNum, appointmentDate, appointmentTime, duration)) {
+            alert('Khung giờ này không nằm trong thời gian rảnh của mentor. Vui lòng chọn giờ khác.');
+            return;
+        }
+        if (isConflicted(mentorIdNum, scheduledTime, duration)) {
+            alert('Khung giờ này bị trùng với lịch hẹn khác. Vui lòng chọn giờ khác.');
+            return;
+        }
         
         // Create new appointment object
         const newAppointment = {
@@ -2484,6 +2550,161 @@ function createUserSampleData() {
     }
 }
 
+// Profile functions
+async function loadProfile() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showError('profileUpdateError', 'Bạn cần đăng nhập để xem trang cá nhân');
+            return;
+        }
+
+        const response = await fetch(`${API_BASE}/users/profile`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const profile = result.data;
+            
+            // Update profile display
+            document.getElementById('profileUsername').textContent = profile.username;
+            document.getElementById('profileAvatarLarge').textContent = profile.username.charAt(0).toUpperCase();
+            
+            // Update role badge
+            const roleBadge = document.getElementById('profileRoleBadge');
+            const roleMap = {
+                'student': { text: 'Sinh viên', class: 'role-student' },
+                'mentor': { text: 'Mentor', class: 'role-mentor' },
+                'admin': { text: 'Admin', class: 'role-admin' }
+            };
+            const roleInfo = roleMap[profile.role] || { text: profile.role, class: 'role-student' };
+            roleBadge.textContent = roleInfo.text;
+            roleBadge.className = `profile-role-badge ${roleInfo.class}`;
+            
+            // Update join date
+            if (profile.created_at) {
+                const joinDate = new Date(profile.created_at).toLocaleDateString('vi-VN');
+                document.getElementById('profileJoinDate').textContent = joinDate;
+            }
+            
+            // Update profile fields
+            document.getElementById('displayUsername').textContent = profile.username;
+            document.getElementById('displayEmail').textContent = profile.email;
+            document.getElementById('displayFullName').textContent = profile.full_name || 'Chưa cập nhật';
+            document.getElementById('displayPhone').textContent = profile.phone || 'Chưa cập nhật';
+            document.getElementById('displayRole').textContent = roleInfo.text;
+            document.getElementById('displayUserId').textContent = profile.id;
+            
+            // Store profile data for editing
+            window.currentProfileData = profile;
+            
+        } else {
+            const error = await response.json();
+            showError('profileUpdateError', error.error || 'Không thể tải thông tin cá nhân');
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('profileUpdateError', 'Có lỗi xảy ra khi tải thông tin cá nhân');
+    }
+}
+
+function enableProfileEdit() {
+    if (!window.currentProfileData) {
+        showError('profileUpdateError', 'Không có dữ liệu để chỉnh sửa');
+        return;
+    }
+    
+    // Hide view mode, show edit mode
+    document.getElementById('profileViewMode').style.display = 'none';
+    document.getElementById('profileEditMode').style.display = 'block';
+    
+    // Populate form with current data
+    document.getElementById('editEmail').value = window.currentProfileData.email || '';
+    document.getElementById('editFullName').value = window.currentProfileData.full_name || '';
+    document.getElementById('editPhone').value = window.currentProfileData.phone || '';
+    
+    // Hide messages
+    document.getElementById('profileUpdateMessage').style.display = 'none';
+    document.getElementById('profileUpdateError').style.display = 'none';
+    
+    // Setup form submission
+    const form = document.getElementById('profileForm');
+    form.onsubmit = handleProfileUpdate;
+}
+
+function cancelProfileEdit() {
+    // Show view mode, hide edit mode
+    document.getElementById('profileViewMode').style.display = 'block';
+    document.getElementById('profileEditMode').style.display = 'none';
+    
+    // Hide messages
+    document.getElementById('profileUpdateMessage').style.display = 'none';
+    document.getElementById('profileUpdateError').style.display = 'none';
+}
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showError('profileUpdateError', 'Bạn cần đăng nhập để cập nhật thông tin');
+            return;
+        }
+        
+        const formData = {
+            email: document.getElementById('editEmail').value,
+            full_name: document.getElementById('editFullName').value,
+            phone: document.getElementById('editPhone').value
+        };
+        
+        const response = await fetch(`${API_BASE}/users/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Update stored profile data
+            window.currentProfileData = result.data;
+            
+            // Update display
+            document.getElementById('displayEmail').textContent = result.data.email;
+            document.getElementById('displayFullName').textContent = result.data.full_name || 'Chưa cập nhật';
+            document.getElementById('displayPhone').textContent = result.data.phone || 'Chưa cập nhật';
+            
+            // Show success message
+            document.getElementById('profileUpdateMessage').style.display = 'block';
+            document.getElementById('profileUpdateError').style.display = 'none';
+            
+            // Return to view mode
+            setTimeout(() => {
+                cancelProfileEdit();
+            }, 2000);
+            
+        } else {
+            const error = await response.json();
+            document.getElementById('profileUpdateError').textContent = error.error || 'Cập nhật thông tin thất bại';
+            document.getElementById('profileUpdateError').style.display = 'block';
+            document.getElementById('profileUpdateMessage').style.display = 'none';
+        }
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        document.getElementById('profileUpdateError').textContent = 'Có lỗi xảy ra khi cập nhật thông tin';
+        document.getElementById('profileUpdateError').style.display = 'block';
+        document.getElementById('profileUpdateMessage').style.display = 'none';
+    }
+}
+
 // Utility functions
 function formatDateTime(dateString) {
     const date = new Date(dateString);
@@ -2508,6 +2729,76 @@ function formatDate(dateString) {
     const year = date.getFullYear();
     
     return `${day}/${month}/${year}`;
+}
+
+// Availability helpers
+function getAvailableSlotsForDate(mentorId, dateStr, durationMinutes) {
+    const avails = getStore('mentorAvailabilities', DEFAULT_DATA.mentorAvailabilities) || [];
+    const slots = [];
+    if (!Array.isArray(avails)) return slots;
+    const d = new Date(`${dateStr}T00:00:00`);
+    const weekday = d.getDay(); // 0-6
+    const aForMentor = avails.filter(a => Number(a.mentor_id) === Number(mentorId) && Array.isArray(a.weekday) && a.weekday.includes(weekday));
+    if (aForMentor.length === 0) return slots;
+    // collect existing appointments
+    const sys = getStore('appointments', []);
+    const user = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+    const userApts = Array.isArray(user.appointments) ? user.appointments : [];
+    const sameDay = (apt) => apt.scheduled_time && apt.scheduled_time.startsWith(dateStr);
+    const existing = [...sys, ...userApts].filter(a => Number(a.mentor_id) === Number(mentorId) && sameDay(a));
+    // generate slots per availability range
+    aForMentor.forEach(a => {
+        const slot = a.slotMinutes || 60;
+        let cur = toMinutes(a.start);
+        const end = toMinutes(a.end);
+        while (cur + durationMinutes <= end) {
+            const startStr = fromMinutes(cur);
+            const iso = `${dateStr}T${startStr}:00`;
+            if (!hasConflict(existing, iso, durationMinutes)) {
+                slots.push(startStr);
+            }
+            cur += slot;
+        }
+    });
+    return slots;
+}
+
+function isInAvailability(mentorId, dateStr, timeStr, durationMinutes) {
+    const avails = getStore('mentorAvailabilities', DEFAULT_DATA.mentorAvailabilities) || [];
+    const d = new Date(`${dateStr}T00:00:00`);
+    const weekday = d.getDay();
+    const mins = toMinutes(timeStr);
+    const aForMentor = avails.filter(a => Number(a.mentor_id) === Number(mentorId) && a.weekday.includes(weekday));
+    return aForMentor.some(a => mins >= toMinutes(a.start) && (mins + durationMinutes) <= toMinutes(a.end));
+}
+
+function isConflicted(mentorId, isoStart, durationMinutes) {
+    const sys = getStore('appointments', []);
+    const user = JSON.parse(localStorage.getItem('userSampleData') || '{}');
+    const userApts = Array.isArray(user.appointments) ? user.appointments : [];
+    const existing = [...sys, ...userApts].filter(a => Number(a.mentor_id) === Number(mentorId));
+    return hasConflict(existing, isoStart, durationMinutes);
+}
+
+function hasConflict(existing, isoStart, durationMinutes) {
+    const start = new Date(isoStart).getTime();
+    const end = start + durationMinutes * 60000;
+    return existing.some(a => {
+        const s = new Date(a.scheduled_time).getTime();
+        const e = s + (parseInt(a.duration || 60) * 60000);
+        return Math.max(start, s) < Math.min(end, e);
+    });
+}
+
+function toMinutes(hhmm) {
+    const [h, m] = (hhmm || '00:00').split(':').map(x => parseInt(x, 10));
+    return (h * 60) + (m || 0);
+}
+
+function fromMinutes(mins) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
 function showError(elementId, message) {
